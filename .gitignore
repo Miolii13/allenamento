@@ -1,0 +1,8 @@
+node_modules
+dist
+~$*
+*.local
+
+# file personali: restano sul PC, non vanno nel repository (che su GitHub Pages è pubblico)
+Workout_Log.xlsx
+riepilogo_allenamento.md

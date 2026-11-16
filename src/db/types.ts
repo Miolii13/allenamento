@@ -1,0 +1,101 @@
+/** Tipo di serie: normale, drop (scalata subito dopo la precedente), mini-serie myo reps. */
+export type SetType = 'work' | 'drop' | 'myo';
+
+/** Come si legge il carico: normale, peso del singolo manubrio, zavorra a corpo libero. */
+export type LoadType = 'standard' | 'dumbbell' | 'bodyweight';
+
+/**
+ * Variante di un attrezzo (es. una delle due Smith).
+ * `equiv` è il carico che dà lo stesso sforzo sulle varie varianti:
+ * Smith 1 = 50, Smith 2 = 45 significa "50 kg sulla 1 equivalgono a 45 kg sulla 2".
+ */
+export interface EquipmentVariant {
+  id: string;
+  name: string;
+  equiv: number;
+}
+
+/** Attrezzo con più varianti che pesano in modo diverso: all'avvio dell'esercizio l'app chiede quale hai usato. */
+export interface EquipmentGroup {
+  id: string;
+  name: string;
+  question: string;
+  variants: EquipmentVariant[];
+}
+
+export interface Exercise {
+  id: string;
+  name: string;
+  loadType: LoadType;
+  equipmentId?: string;
+  notes?: string;
+  archived?: boolean;
+  createdAt: number;
+}
+
+export interface TemplateSet {
+  type: SetType;
+  /** Ripetizioni obiettivo, testo libero: "5-7", "max", "10". */
+  reps: string;
+  note?: string;
+}
+
+export interface TemplateItem {
+  id: string;
+  exerciseId: string;
+  /** Lettera del superset (A, B, ...): esercizi con la stessa lettera vanno fatti in superset. */
+  superset?: string;
+  notes?: string;
+  sets: TemplateSet[];
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  order: number;
+  items: TemplateItem[];
+  archived?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface WorkoutSet {
+  id: string;
+  type: SetType;
+  target: string;
+  note?: string;
+  weight?: number;
+  reps?: number;
+  done: boolean;
+}
+
+export interface WorkoutEntry {
+  id: string;
+  exerciseId: string;
+  superset?: string;
+  /** Nota della scheda (es. "Dropset"), copiata all'avvio. */
+  hint?: string;
+  /** Nota libera della sessione. */
+  notes?: string;
+  /** Variante dell'attrezzo usata (es. quale Smith). */
+  variantId?: string;
+  sets: WorkoutSet[];
+}
+
+export interface Workout {
+  id: string;
+  templateId?: string;
+  templateName: string;
+  status: 'active' | 'done';
+  startedAt: number;
+  finishedAt?: number;
+  notes?: string;
+  entries: WorkoutEntry[];
+  /** Copia degli id esercizio presenti, indicizzata per trovare in fretta "la volta prima". */
+  exerciseIds: string[];
+}
+
+export interface Settings {
+  id: 'settings';
+  equipment: EquipmentGroup[];
+}
