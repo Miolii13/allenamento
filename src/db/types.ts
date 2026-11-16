@@ -23,11 +23,28 @@ export interface EquipmentGroup {
   variants: EquipmentVariant[];
 }
 
+/** Gruppo muscolare principale, per le statistiche (serie a settimana per muscolo). */
+export type MuscleGroup =
+  | 'petto'
+  | 'schiena'
+  | 'spalle'
+  | 'bicipiti'
+  | 'tricipiti'
+  | 'quadricipiti'
+  | 'femorali'
+  | 'glutei'
+  | 'adduttori'
+  | 'polpacci'
+  | 'addome'
+  | 'altro';
+
 export interface Exercise {
   id: string;
   name: string;
   loadType: LoadType;
   equipmentId?: string;
+  /** Se manca si usa quello predefinito per gli esercizi iniziali (lib/muscles.ts). */
+  muscle?: MuscleGroup;
   notes?: string;
   archived?: boolean;
   createdAt: number;
@@ -46,6 +63,8 @@ export interface TemplateItem {
   /** Lettera del superset (A, B, ...): esercizi con la stessa lettera vanno fatti in superset. */
   superset?: string;
   notes?: string;
+  /** Recupero dopo le serie di questo esercizio, in secondi. Se manca vale quello predefinito (2:00). */
+  rest?: number;
   sets: TemplateSet[];
 }
 
@@ -79,6 +98,8 @@ export interface WorkoutEntry {
   notes?: string;
   /** Variante dell'attrezzo usata (es. quale Smith). */
   variantId?: string;
+  /** Recupero copiato dalla scheda all'avvio (secondi). */
+  rest?: number;
   sets: WorkoutSet[];
 }
 
@@ -95,7 +116,12 @@ export interface Workout {
   exerciseIds: string[];
 }
 
+/** Cosa prevede un giorno della settimana tipo. */
+export type DayPlan = { kind: 'rest' } | { kind: 'gym'; templateId: string } | { kind: 'run' };
+
 export interface Settings {
   id: 'settings';
   equipment: EquipmentGroup[];
+  /** Settimana tipo, da lunedì (0) a domenica (6). */
+  weekPlan?: DayPlan[];
 }

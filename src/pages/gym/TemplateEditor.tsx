@@ -7,6 +7,7 @@ import { ExercisePicker } from '../../components/ExercisePicker';
 import { PageHeader } from '../../components/PageHeader';
 import { navigate } from '../../router';
 import { setLabels, summarizeSets } from '../../lib/format';
+import { fmtClock, getDefaultRest, ITEM_REST_OPTIONS } from '../../lib/restTimer';
 
 const SUPERSET_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const SET_TYPE_LABEL: Record<SetType, string> = { work: 'Serie', drop: 'Drop', myo: 'Myo' };
@@ -21,6 +22,7 @@ export function TemplateEditor({ id }: { id: string }) {
   const [t, setT] = useState<Template | null>();
   const [picker, setPicker] = useState<PickerState>(null);
   const exMap = useExerciseMap();
+  const defaultRest = getDefaultRest();
 
   useEffect(() => {
     if (isNew) {
@@ -81,7 +83,7 @@ export function TemplateEditor({ id }: { id: string }) {
     <div className="page">
       <PageHeader
         title={isNew ? 'Nuova scheda' : 'Modifica scheda'}
-        back={{ to: '/pesi', label: 'Allenati' }}
+        back={{ to: '/pesi', label: 'Oggi' }}
         subtitle="Le modifiche valgono dai prossimi allenamenti."
       />
 
@@ -192,7 +194,21 @@ export function TemplateEditor({ id }: { id: string }) {
             </div>
 
             <div className="row" style={{ alignItems: 'flex-end' }}>
-              <label className="field" style={{ width: 96 }}>
+              <label className="field grow">
+                <span>Recupero</span>
+                <select
+                  value={it.rest ?? ''}
+                  onChange={(e) => setItem(it.id, { rest: e.target.value ? Number(e.target.value) : undefined })}
+                >
+                  <option value="">Predefinito ({fmtClock(defaultRest)})</option>
+                  {ITEM_REST_OPTIONS.map((sec) => (
+                    <option key={sec} value={sec}>
+                      {fmtClock(sec)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" style={{ width: 110 }}>
                 <span>Superset</span>
                 <select value={it.superset ?? ''} onChange={(e) => setItem(it.id, { superset: e.target.value || undefined })}>
                   <option value="">—</option>
@@ -203,11 +219,11 @@ export function TemplateEditor({ id }: { id: string }) {
                   ))}
                 </select>
               </label>
-              <label className="field grow">
-                <span>Nota per l'allenamento</span>
-                <input value={it.notes ?? ''} placeholder="es. Dropset" onChange={(e) => setItem(it.id, { notes: e.target.value || undefined })} />
-              </label>
             </div>
+            <label className="field">
+              <span>Nota per l'allenamento</span>
+              <input value={it.notes ?? ''} placeholder="es. Dropset" onChange={(e) => setItem(it.id, { notes: e.target.value || undefined })} />
+            </label>
           </section>
         );
       })}
@@ -216,7 +232,10 @@ export function TemplateEditor({ id }: { id: string }) {
         <Plus size={18} /> Aggiungi esercizio
       </button>
 
-      <p className="muted small">Esercizi con la stessa lettera di superset si fanno uno dopo l'altro, con il recupero alla fine.</p>
+      <p className="muted small">
+        Esercizi con la stessa lettera di superset si fanno uno dopo l'altro: il recupero parte dopo l'ultimo del gruppo e
+        vale quello impostato su quell'esercizio.
+      </p>
 
       <div className="sticky-actions">
         {!isNew && (

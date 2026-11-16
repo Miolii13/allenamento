@@ -52,7 +52,7 @@ export function ExercisePicker({ onPick, onClose }: { onPick: (exerciseId: strin
           </div>
           <button
             className="btn btn-block"
-            onClick={() => setDraft({ name: query.trim(), loadType: 'standard', equipmentId: undefined, notes: undefined })}
+            onClick={() => setDraft({ name: query.trim(), loadType: 'standard', equipmentId: undefined, notes: undefined, muscle: undefined })}
           >
             <Plus size={18} /> Crea nuovo esercizio{query.trim() ? ` «${query.trim()}»` : ''}
           </button>

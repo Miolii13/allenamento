@@ -10,6 +10,7 @@ import { EmptyState, PageHeader } from '../../components/PageHeader';
 import { Link, navigate } from '../../router';
 import { fmtDate, fmtNum } from '../../lib/format';
 import { bestE1RM, entryVolume, equipmentOf, isLogged, setText, variantOf } from '../../lib/progress';
+import { muscleOf, MUSCLE_LABEL } from '../../lib/muscles';
 
 export function ExerciseDetail({ id }: { id: string }) {
   const isNew = id === 'nuovo';
@@ -32,9 +33,15 @@ export function ExerciseDetail({ id }: { id: string }) {
   const [editing, setEditing] = useState(isNew);
 
   useEffect(() => {
-    if (isNew) setDraft({ name: '', loadType: 'standard', equipmentId: undefined, notes: undefined });
+    if (isNew) setDraft({ name: '', loadType: 'standard', equipmentId: undefined, notes: undefined, muscle: undefined });
     else if (exercise)
-      setDraft({ name: exercise.name, loadType: exercise.loadType, equipmentId: exercise.equipmentId, notes: exercise.notes });
+      setDraft({
+        name: exercise.name,
+        loadType: exercise.loadType,
+        equipmentId: exercise.equipmentId,
+        notes: exercise.notes,
+        muscle: muscleOf(exercise),
+      });
   }, [exercise, isNew]);
 
   if (exercise === undefined || !draft) return <p className="page muted">Caricamento…</p>;
@@ -122,7 +129,10 @@ export function ExerciseDetail({ id }: { id: string }) {
         }
         subtitle={exercise.notes}
       />
-      <ExerciseTags exercise={exercise} />
+      <div className="chips">
+        <span className="chip accent">{MUSCLE_LABEL[muscleOf(exercise)]}</span>
+        <ExerciseTags exercise={exercise} />
+      </div>
 
       {editing && form}
 

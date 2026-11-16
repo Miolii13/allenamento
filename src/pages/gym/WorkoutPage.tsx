@@ -14,6 +14,7 @@ import {
   Plus,
   RotateCcw,
   StickyNote,
+  Timer,
   Trash2,
   TrendingUp,
   TriangleAlert,
@@ -49,7 +50,7 @@ import {
   variantOf,
   type Trend,
 } from '../../lib/progress';
-import { startRest, stopRest } from '../../lib/restTimer';
+import { fmtClock, getDefaultRest, startRest, stopRest } from '../../lib/restTimer';
 
 export function TrendIcon({ trend, size = 13 }: { trend: Trend; size?: number }) {
   const Icon = trend === 'up' ? ArrowUp : trend === 'down' ? ArrowDown : Equal;
@@ -388,7 +389,7 @@ function EntryCard(props: EntryCardProps) {
     const nextType = entry.sets[i + 1]?.type;
     const chained = nextType === 'drop' || nextType === 'myo';
     const lastSet = i === entry.sets.length - 1;
-    if (timerEnabled && !chained && (restAfterSet || !lastSet)) startRest();
+    if (timerEnabled && !chained && (restAfterSet || !lastSet)) startRest(entry.rest ?? getDefaultRest());
   };
 
   const addSet = (type: SetType) => {
@@ -412,7 +413,14 @@ function EntryCard(props: EntryCardProps) {
             {supersetLabel && <span className="badge">{supersetLabel}</span>}
             {variant && <span className="chip warning">{variant.name}</span>}
             {open ? (
-              <span>Obiettivo {targetSummary || '—'}</span>
+              <>
+                <span>Obiettivo {targetSummary || '—'}</span>
+                {restAfterSet && (
+                  <span className="row" style={{ gap: 3 }}>
+                    · <Timer size={12} /> {fmtClock(entry.rest ?? getDefaultRest())}
+                  </span>
+                )}
+              </>
             ) : (
               <span className="ex-collapsed-sum">
                 {loggedSets}/{entry.sets.length} serie

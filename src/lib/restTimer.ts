@@ -8,6 +8,8 @@ export interface RestState {
 
 const DEFAULT_KEY = 'allenamento-rest-seconds';
 export const REST_OPTIONS = [60, 90, 120, 150, 180];
+/** Scelte per il recupero del singolo esercizio nella scheda. */
+export const ITEM_REST_OPTIONS = [30, 45, 60, 75, 90, 120, 150, 180, 240, 300];
 
 let state: RestState | null = null;
 const subscribers = new Set<() => void>();

@@ -792,6 +792,38 @@ textarea::placeholder {
 .hero.resume .btn {
   color: #11643a;
 }
+.hero.rest {
+  background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
+  box-shadow: 0 10px 30px rgba(30, 41, 59, 0.25);
+}
+.hero.rest .btn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.hero.run {
+  background: linear-gradient(135deg, #0e7490 0%, #0f766e 100%);
+  box-shadow: 0 10px 30px rgba(14, 116, 144, 0.25);
+}
+.hero.run .btn {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.week .plan {
+  display: grid;
+  place-items: center;
+  height: 16px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.week .plan.gym {
+  color: var(--accent-text);
+}
+.week .plan.run {
+  color: #0f9488;
+}
 
 .week {
   display: grid;
@@ -1208,6 +1240,69 @@ textarea::placeholder {
   font-size: 14px;
   font-weight: 650;
   cursor: pointer;
+}
+
+/* ---------- Statistiche ---------- */
+
+.stat .delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.stat b small {
+  font-size: 13px;
+  font-weight: 600;
+}
+.chip.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.tile-icon.gold {
+  background: rgba(234, 179, 8, 0.16);
+  color: #b7791f;
+}
+.bar {
+  fill: var(--series);
+  transition: opacity 0.12s;
+}
+.bar.dim {
+  opacity: 0.45;
+}
+.meter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.meter {
+  display: grid;
+  grid-template-columns: 96px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.meter .m-name {
+  color: var(--text-2);
+  font-weight: 550;
+}
+.meter .m-track {
+  height: 12px;
+  border-radius: 0 4px 4px 0;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.meter .m-fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--series);
+}
+.meter .m-val {
+  color: var(--text);
+  font-weight: 700;
+  text-align: right;
 }
 
 /* ---------- Riepilogo e storico ---------- */

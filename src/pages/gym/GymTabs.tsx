@@ -1,8 +1,9 @@
 import { Link } from '../../router';
 
 const TABS = [
-  { to: '/pesi', label: 'Allenati' },
+  { to: '/pesi', label: 'Oggi' },
   { to: '/pesi/storico', label: 'Storico' },
+  { to: '/pesi/statistiche', label: 'Statistiche' },
   { to: '/pesi/esercizi', label: 'Esercizi' },
 ];
 

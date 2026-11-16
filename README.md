@@ -58,6 +58,12 @@ apertura con la rete dopo un nuovo push.
 - **Smith machine e cavi**: gli esercizi collegati a un attrezzo con più versioni chiedono quale hai usato.
   I pesi della volta prima vengono convertiti sulla versione di oggi (default: 50 kg Smith 1 = 45 kg Smith 2,
   9 kg Cavo 1 = 4,5 kg Cavo 2). Nomi e equivalenze si cambiano in Impostazioni.
+- **Settimana tipo** (Impostazioni o «Modifica» nella home): per ogni giorno una scheda, la corsa o il riposo.
+  Aprendo l'app la home mostra l'allenamento di oggi; senza settimana tipo propone la scheda successiva della rotazione.
+- **Recupero**: il timer parte quando spunti una serie. Ogni esercizio della scheda può avere il suo recupero;
+  se non lo imposti vale quello predefinito (2:00, modificabile in Impostazioni).
+- **Statistiche**: allenamenti, volume, serie e durata media con il confronto sul periodo precedente, volume per
+  settimana o mese, serie a settimana per muscolo, record battuti e progressi per esercizio.
 - **Storico** ed **Esercizi**: ogni allenamento con il confronto sulla sessione precedente; per ogni
   esercizio le sessioni passate e il grafico del 1RM stimato (ripetizioni totali per trazioni e dip).
 

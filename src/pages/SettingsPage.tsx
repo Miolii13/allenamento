@@ -8,6 +8,9 @@ import { PageHeader } from '../components/PageHeader';
 import { fmtNum } from '../lib/format';
 import { fmtClock, getDefaultRest, REST_OPTIONS, setDefaultRest } from '../lib/restTimer';
 import { SyncCard } from './SyncCard';
+import { WeekPlanSheet } from '../components/WeekPlanSheet';
+import { planLabel, WEEKDAYS } from '../lib/weekPlan';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 // il valore predefinito del recupero sta in localStorage: lo rileggo quando cambia
 const restSubs = new Set<() => void>();
@@ -28,6 +31,8 @@ export function SettingsPage() {
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const rest = useDefaultRest();
+  const [editPlan, setEditPlan] = useState(false);
+  const templates = useLiveQuery(() => db.templates.toArray());
 
   useEffect(() => {
     if (settings && !equipment) setEquipment(structuredClone(settings.equipment));
@@ -50,7 +55,9 @@ export function SettingsPage() {
       alert('Ogni attrezzo deve avere un nome e almeno 2 versioni con nome e carico maggiore di zero.');
       return;
     }
-    await db.settings.put({ id: 'settings', equipment: equipment! });
+    // solo gli attrezzi: il resto delle impostazioni (es. settimana tipo) resta com'è
+    const updated = await db.settings.update('settings', { equipment: equipment! });
+    if (!updated) await db.settings.put({ id: 'settings', equipment: equipment! });
     setSaved(true);
   }
 
@@ -91,10 +98,34 @@ export function SettingsPage() {
 
       <section className="section">
         <div className="section-title">
-          <h2>Recupero tra le serie</h2>
+          <h2>Settimana tipo</h2>
+          <button className="link" onClick={() => setEditPlan(true)}>
+            Modifica
+          </button>
+        </div>
+        <div className="card flush">
+          {WEEKDAYS.map((day, i) => (
+            <div key={day} className="list-row" style={{ minHeight: 48, cursor: 'default' }}>
+              <span className="lr-body">
+                <span>{day}</span>
+              </span>
+              <span className={settings?.weekPlan?.[i]?.kind === 'gym' ? 'strong' : 'muted'}>
+                {planLabel(settings?.weekPlan?.[i], templates)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-title">
+          <h2>Recupero predefinito</h2>
         </div>
         <div className="card">
-          <p className="muted small">Il timer parte da solo quando segni una serie. Durante il recupero puoi aggiungere o togliere 15 secondi.</p>
+          <p className="muted small">
+            Il timer parte da solo quando segni una serie. Vale per gli esercizi che nella scheda non hanno un recupero
+            impostato; durante il recupero puoi aggiungere o togliere 15 secondi.
+          </p>
           <div className="segmented">
             {REST_OPTIONS.map((s) => (
               <button
@@ -240,6 +271,7 @@ export function SettingsPage() {
           )}
         </div>
       </section>
+      {editPlan && <WeekPlanSheet onClose={() => setEditPlan(false)} />}
     </div>
   );
 }

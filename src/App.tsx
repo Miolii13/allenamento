@@ -8,6 +8,7 @@ import { HistoryList } from './pages/gym/HistoryList';
 import { WorkoutDetail } from './pages/gym/WorkoutDetail';
 import { ExerciseList } from './pages/gym/ExerciseList';
 import { ExerciseDetail } from './pages/gym/ExerciseDetail';
+import { StatsPage } from './pages/gym/StatsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ComingSoon } from './pages/ComingSoon';
 import { RestTimerBar } from './components/RestTimer';
@@ -38,6 +39,7 @@ function Screen({ parts, fresh }: { parts: string[]; fresh: boolean }) {
   if (sub === 'workout' && id) return <WorkoutPage key={id} id={id} />;
   if (sub === 'storico' && id) return <WorkoutDetail key={id} id={id} fresh={fresh} />;
   if (sub === 'storico') return <HistoryList />;
+  if (sub === 'statistiche') return <StatsPage />;
   if (sub === 'esercizi' && id) return <ExerciseDetail key={id} id={id} />;
   if (sub === 'esercizi') return <ExerciseList />;
   return <GymHome />;

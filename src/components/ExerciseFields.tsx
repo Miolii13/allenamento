@@ -1,10 +1,11 @@
-import type { Exercise, LoadType } from '../db/types';
+import type { Exercise, LoadType, MuscleGroup } from '../db/types';
 import { useSettings } from '../db/repo';
 import { LOAD_TYPE_LABEL } from '../lib/format';
+import { MUSCLE_LABEL } from '../lib/muscles';
 
-export type ExerciseDraft = Pick<Exercise, 'name' | 'loadType' | 'equipmentId' | 'notes'>;
+export type ExerciseDraft = Pick<Exercise, 'name' | 'loadType' | 'equipmentId' | 'notes' | 'muscle'>;
 
-/** Campi modificabili di un esercizio: nome, tipo di carico, attrezzo con più varianti, note. */
+/** Campi modificabili di un esercizio: nome, muscolo, tipo di carico, attrezzo con più varianti, note. */
 export function ExerciseFields({ value, onChange }: { value: ExerciseDraft; onChange: (v: ExerciseDraft) => void }) {
   const settings = useSettings();
   return (
@@ -12,6 +13,21 @@ export function ExerciseFields({ value, onChange }: { value: ExerciseDraft; onCh
       <label className="field">
         <span>Nome</span>
         <input value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} placeholder="Es. Panca piana" />
+      </label>
+      <label className="field">
+        <span>Muscolo principale</span>
+        <select
+          value={value.muscle ?? ''}
+          onChange={(e) => onChange({ ...value, muscle: (e.target.value || undefined) as MuscleGroup | undefined })}
+        >
+          <option value="">Scegli…</option>
+          {(Object.keys(MUSCLE_LABEL) as MuscleGroup[]).map((k) => (
+            <option key={k} value={k}>
+              {MUSCLE_LABEL[k]}
+            </option>
+          ))}
+        </select>
+        <small>Serve per le statistiche: serie a settimana per muscolo.</small>
       </label>
       <label className="field">
         <span>Tipo di carico</span>

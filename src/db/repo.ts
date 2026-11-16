@@ -43,6 +43,7 @@ export async function startWorkout(template: Template): Promise<Workout> {
       exerciseId: it.exerciseId,
       ...(it.superset ? { superset: it.superset } : {}),
       ...(it.notes ? { hint: it.notes } : {}),
+      ...(it.rest ? { rest: it.rest } : {}),
       sets: it.sets.map((s) => newSet(s.type, s.reps, s.note)),
     })),
   });
