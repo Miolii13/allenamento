@@ -1,12 +1,12 @@
-export function ComingSoon({ title, text }: { title: string; text: string }) {
+import type { ReactNode } from 'react';
+import { EmptyState, PageHeader } from '../components/PageHeader';
+
+export function ComingSoon({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>{title}</h1>
-      </header>
-      <div className="card coming">
-        <strong>In arrivo</strong>
-        <p className="muted">{text}</p>
+      <PageHeader title={title} />
+      <div className="card">
+        <EmptyState icon={icon} title="In arrivo" text={text} />
       </div>
     </div>
   );

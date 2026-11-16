@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { db, uid } from '../../db/db';
 import { useExerciseMap } from '../../db/repo';
 import type { SetType, Template, TemplateItem, TemplateSet } from '../../db/types';
 import { ExercisePicker } from '../../components/ExercisePicker';
+import { PageHeader } from '../../components/PageHeader';
 import { navigate } from '../../router';
 import { setLabels, summarizeSets } from '../../lib/format';
 
@@ -10,6 +12,9 @@ const SUPERSET_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 const SET_TYPE_LABEL: Record<SetType, string> = { work: 'Serie', drop: 'Drop', myo: 'Myo' };
 
 type PickerState = { mode: 'add' } | { mode: 'replace'; itemId: string } | null;
+
+/** Etichetta corta per il numero della serie: S1 -> 1, Attiv. -> A, drop -> ↳, Myo 2 -> M2. */
+const shortLabel = (l: string) => l.replace(/^S(\d+)$/, '$1').replace('Attiv.', 'A').replace('↳ drop', '↳').replace(/^Myo (\d+)$/, 'M$1');
 
 export function TemplateEditor({ id }: { id: string }) {
   const isNew = id === 'nuova';
@@ -74,45 +79,50 @@ export function TemplateEditor({ id }: { id: string }) {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>{isNew ? 'Nuova scheda' : 'Modifica scheda'}</h1>
-      </header>
+      <PageHeader
+        title={isNew ? 'Nuova scheda' : 'Modifica scheda'}
+        back={{ to: '/pesi', label: 'Allenati' }}
+        subtitle="Le modifiche valgono dai prossimi allenamenti."
+      />
 
       <label className="field">
-        <span>Nome</span>
+        <span>Nome della scheda</span>
         <input value={tpl.name} placeholder="Es. Upper 1" onChange={(e) => setT({ ...tpl, name: e.target.value })} />
       </label>
 
       {tpl.items.map((it, i) => {
         const labels = setLabels(it.sets);
         return (
-          <section key={it.id} className={`card${it.superset ? ' superset' : ''}`}>
-            <div className="entry-head">
-              <button className="entry-name link" onClick={() => setPicker({ mode: 'replace', itemId: it.id })}>
-                {i + 1}. {exMap?.get(it.exerciseId)?.name ?? '?'}
+          <section key={it.id} className={`ex-card${it.superset ? ' superset' : ''}`}>
+            <div className="ex-head">
+              <span className="ex-index">{i + 1}</span>
+              <button className="ex-titles ex-name" onClick={() => setPicker({ mode: 'replace', itemId: it.id })}>
+                <span>
+                  {exMap?.get(it.exerciseId)?.name ?? '?'} <Pencil size={13} className="muted" />
+                </span>
+                <span className="ex-sub">{summarizeSets(it.sets) || 'Nessuna serie'}</span>
               </button>
-              <div className="row gap-s">
-                <button className="btn ghost icon" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Sposta su">
-                  ↑
+              <div className="row" style={{ gap: 0 }}>
+                <button className="icon-btn" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Sposta su">
+                  <ArrowUp size={18} />
                 </button>
-                <button className="btn ghost icon" disabled={i === tpl.items.length - 1} onClick={() => move(i, 1)} aria-label="Sposta giù">
-                  ↓
+                <button className="icon-btn" disabled={i === tpl.items.length - 1} onClick={() => move(i, 1)} aria-label="Sposta giù">
+                  <ArrowDown size={18} />
                 </button>
                 <button
-                  className="btn ghost icon danger-text"
+                  className="icon-btn"
                   aria-label="Rimuovi esercizio"
                   onClick={() => setT({ ...tpl, items: tpl.items.filter((x) => x.id !== it.id) })}
                 >
-                  ✕
+                  <Trash2 size={18} />
                 </button>
               </div>
             </div>
-            <p className="muted small">{summarizeSets(it.sets) || 'Nessuna serie'}</p>
 
             <div className="tpl-sets">
               {it.sets.map((s, si) => (
                 <div key={si} className={`tpl-set ${s.type}`}>
-                  <span className="set-label">{labels[si]}</span>
+                  <span className="set-num">{shortLabel(labels[si])}</span>
                   <select
                     value={s.type}
                     aria-label="Tipo di serie"
@@ -133,7 +143,7 @@ export function TemplateEditor({ id }: { id: string }) {
                     onChange={(e) => setSets(it.id, it.sets.map((x, k) => (k === si ? { ...x, reps: e.target.value } : x)))}
                   />
                   <button
-                    className={`btn ghost icon${s.note !== undefined ? ' on' : ''}`}
+                    className={`icon-btn${s.note !== undefined ? ' on' : ''}`}
                     aria-label="Nota della serie"
                     aria-pressed={s.note !== undefined}
                     onClick={() =>
@@ -143,7 +153,7 @@ export function TemplateEditor({ id }: { id: string }) {
                       )
                     }
                   >
-                    ✎
+                    <Pencil size={16} />
                   </button>
                   {s.note !== undefined && (
                     <input
@@ -156,38 +166,35 @@ export function TemplateEditor({ id }: { id: string }) {
                     />
                   )}
                   <button
-                    className="btn ghost icon"
+                    className="icon-btn"
                     aria-label="Rimuovi serie"
                     onClick={() => setSets(it.id, it.sets.filter((_, k) => k !== si))}
                   >
-                    ✕
+                    <X size={18} />
                   </button>
                 </div>
               ))}
             </div>
 
-            <div className="row gap wrap">
+            <div className="ex-actions">
               {(['work', 'drop', 'myo'] as SetType[]).map((type) => (
                 <button
                   key={type}
-                  className="btn small ghost"
+                  className="btn"
                   onClick={() => {
                     const last = [...it.sets].reverse().find((x) => x.type === type);
                     setSets(it.id, [...it.sets, { type, reps: last?.reps ?? (type === 'myo' ? '3-5' : '8-10') }]);
                   }}
                 >
-                  + {SET_TYPE_LABEL[type]}
+                  <Plus size={15} /> {SET_TYPE_LABEL[type]}
                 </button>
               ))}
             </div>
 
-            <div className="row gap tpl-extra">
-              <label className="field compact">
+            <div className="row" style={{ alignItems: 'flex-end' }}>
+              <label className="field" style={{ width: 96 }}>
                 <span>Superset</span>
-                <select
-                  value={it.superset ?? ''}
-                  onChange={(e) => setItem(it.id, { superset: e.target.value || undefined })}
-                >
+                <select value={it.superset ?? ''} onChange={(e) => setItem(it.id, { superset: e.target.value || undefined })}>
                   <option value="">—</option>
                   {SUPERSET_LETTERS.map((l) => (
                     <option key={l} value={l}>
@@ -196,36 +203,33 @@ export function TemplateEditor({ id }: { id: string }) {
                   ))}
                 </select>
               </label>
-              <label className="field compact grow">
-                <span>Nota per il workout</span>
-                <input value={it.notes ?? ''} onChange={(e) => setItem(it.id, { notes: e.target.value || undefined })} />
+              <label className="field grow">
+                <span>Nota per l'allenamento</span>
+                <input value={it.notes ?? ''} placeholder="es. Dropset" onChange={(e) => setItem(it.id, { notes: e.target.value || undefined })} />
               </label>
             </div>
           </section>
         );
       })}
 
-      <button className="btn block" onClick={() => setPicker({ mode: 'add' })}>
-        + Aggiungi esercizio
+      <button className="btn btn-block" onClick={() => setPicker({ mode: 'add' })}>
+        <Plus size={18} /> Aggiungi esercizio
       </button>
 
-      <p className="muted small">
-        Le modifiche valgono dai prossimi allenamenti: quelli già fatti restano come sono. Esercizi con la stessa lettera di
-        superset vengono raggruppati durante il workout.
-      </p>
+      <p className="muted small">Esercizi con la stessa lettera di superset si fanno uno dopo l'altro, con il recupero alla fine.</p>
 
       <div className="sticky-actions">
         {!isNew && (
-          <button className="btn danger-text" onClick={remove}>
-            Elimina
+          <button className="btn btn-danger-text btn-sm" onClick={remove}>
+            <Trash2 size={16} /> Elimina
           </button>
         )}
         <span className="grow" />
-        <button className="btn ghost" onClick={() => navigate('/pesi')}>
+        <button className="btn btn-sm" onClick={() => navigate('/pesi')}>
           Annulla
         </button>
-        <button className="btn primary" onClick={save}>
-          Salva
+        <button className="btn btn-primary btn-sm" onClick={save}>
+          Salva scheda
         </button>
       </div>
 

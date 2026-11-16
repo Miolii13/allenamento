@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { findPrevEntries, useExerciseMap, useSettings, type PrevEntry } from '../../db/repo';
 import { Link, navigate } from '../../router';
 import { fmtDate, fmtDuration, fmtNum } from '../../lib/format';
 import { compareSet, entryVolume, equipmentOf, isLogged, matchPrevSet, setText, variantOf } from '../../lib/progress';
-import { TREND_ICON } from './WorkoutPage';
+import { PageHeader } from '../../components/PageHeader';
+import { TrendIcon } from './WorkoutPage';
 
 export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
   const w = useLiveQuery(async () => (await db.workouts.get(id)) ?? null, [id]);
@@ -29,8 +31,7 @@ export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
   if (w === null)
     return (
       <div className="page">
-        <p>Allenamento non trovato.</p>
-        <Link to="/pesi/storico">Torna allo storico</Link>
+        <PageHeader title="Non trovato" back={{ to: '/pesi/storico', label: 'Storico' }} />
       </div>
     );
   if (w.status === 'active') return null;
@@ -67,90 +68,103 @@ export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
     navigate('/pesi/storico', { replace: true });
   }
 
+  const duration = w.finishedAt ? fmtDuration(w.finishedAt - w.startedAt) : '—';
+
   return (
     <div className="page">
-      <header className="page-head">
-        <Link to="/pesi/storico" className="back">
-          ‹ Storico
-        </Link>
-        <h1>{w.templateName}</h1>
-        <span className="muted">
-          {fmtDate(w.startedAt)}
-          {w.finishedAt ? ` · ${fmtDuration(w.finishedAt - w.startedAt)}` : ''}
-        </span>
-      </header>
-
-      {fresh && (
-        <div className="card success">
-          <strong>Allenamento salvato.</strong>
-          <span>
-            {up + down > 0
-              ? `Rispetto alla volta prima: ${up} ${up === 1 ? 'serie migliorata' : 'serie migliorate'}, ${down} in calo.`
-              : 'La prossima volta qui vedrai il confronto con questa sessione.'}
-          </span>
+      {fresh ? (
+        <div className="done-hero">
+          <div className="dh-ico">
+            <CircleCheck size={34} />
+          </div>
+          <h1>Allenamento completato</h1>
+          <p className="muted">
+            {w.templateName} · {fmtDate(w.startedAt)}
+          </p>
         </div>
+      ) : (
+        <PageHeader title={w.templateName} subtitle={fmtDate(w.startedAt)} back={{ to: '/pesi/storico', label: 'Storico' }} />
       )}
 
-      <div className="stats">
-        <div>
-          <b>{w.entries.length}</b>
-          <span>esercizi</span>
+      <div className="stats-grid four">
+        <div className="stat">
+          <b>{duration}</b>
+          <span>durata</span>
         </div>
-        <div>
+        <div className="stat">
           <b>{totalSets}</b>
           <span>serie</span>
         </div>
-        <div>
+        <div className="stat">
           <b>{fmtNum(Math.round(totalVolume))}</b>
-          <span>kg volume</span>
+          <span>kg di volume</span>
+        </div>
+        <div className="stat">
+          <b className={up > 0 ? 'pos' : undefined}>{up + down > 0 ? up : '—'}</b>
+          <span>serie migliorate</span>
         </div>
       </div>
 
+      {fresh && up + down === 0 && (
+        <p className="muted small" style={{ textAlign: 'center' }}>
+          La prossima volta qui vedrai il confronto con questa sessione.
+        </p>
+      )}
+
       {rows.map(({ e, ex, variant, bodyweight, sets, vol, delta }) => (
         <section key={e.id} className="card">
-          <div className="entry-head">
-            <Link to={`/pesi/esercizi/${e.exerciseId}`} className="entry-name">
-              {e.superset && <span className="badge small">{e.superset}</span>}
+          <div className="row between">
+            <Link to={`/pesi/esercizi/${e.exerciseId}`} className="ex-name" style={{ fontSize: 16 }}>
+              {e.superset && (
+                <>
+                  <span className="badge">{e.superset}</span>{' '}
+                </>
+              )}
               {ex?.name ?? 'Esercizio eliminato'}
             </Link>
-            {variant && <span className="tag accent">{variant.name}</span>}
+            {variant && <span className="chip warning">{variant.name}</span>}
           </div>
           <div className="chips">
             {sets.map(({ s, trend }) => (
-              <span key={s.id} className={`chip ${s.type}${trend ? ` trend-${trend}` : ''}`}>
+              <span key={s.id} className={`set-chip ${s.type}`}>
                 {s.type === 'drop' ? '↳ ' : s.type === 'myo' ? 'myo ' : ''}
                 {setText(s, bodyweight)}
-                {trend && <b>{TREND_ICON[trend]}</b>}
+                {trend && <TrendIcon trend={trend} size={12} />}
               </span>
             ))}
           </div>
           <p className="muted small">
             {bodyweight ? `${vol} ripetizioni totali` : `Volume ${fmtNum(Math.round(vol))} kg`}
-            {delta !== undefined && Number.isFinite(delta) && (
-              <span className={delta > 0 ? 'pos' : delta < 0 ? 'neg' : ''}>
-                {' '}
-                ({delta > 0 ? '+' : ''}
-                {fmtNum(Math.round(delta))}% vs volta prima)
+            {delta !== undefined && Number.isFinite(delta) && Math.round(delta) !== 0 && (
+              <span className={delta > 0 ? 'pos strong' : 'neg strong'}>
+                {'  '}
+                {delta > 0 ? '+' : ''}
+                {fmtNum(Math.round(delta))}% vs volta prima
               </span>
             )}
           </p>
-          {e.notes && <p className="note">{e.notes}</p>}
+          {e.notes && <p className="note small text-2">{e.notes}</p>}
         </section>
       ))}
 
       {w.notes && (
         <section className="card">
           <h3>Note</h3>
-          <p className="note">{w.notes}</p>
+          <p className="note text-2">{w.notes}</p>
         </section>
       )}
 
-      <div className="row gap">
-        <Link to={`/pesi/workout/${w.id}`} className="btn grow">
-          Modifica
+      {fresh && (
+        <Link to="/pesi" className="btn btn-primary btn-lg btn-block">
+          Torna alla home
         </Link>
-        <button className="btn danger-text" onClick={remove}>
-          Elimina
+      )}
+      <div className="row">
+        <Link to={`/pesi/workout/${w.id}`} className="btn grow">
+          <Pencil size={16} /> Modifica
+        </Link>
+        <button className="btn btn-danger" onClick={remove}>
+          <Trash2 size={16} /> Elimina
         </button>
       </div>
     </div>

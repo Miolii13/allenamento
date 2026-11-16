@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { CloudCheck, CloudOff, LogOut, RefreshCw } from 'lucide-react';
 import { db } from '../db/db';
 import { configFromEnv, fullResync, getConfig, saveConfig, scheduleSync, signIn, signOut, useSyncStatus } from '../sync/controller';
 import { daysAgo } from '../lib/format';
@@ -36,103 +37,98 @@ export function SyncCard() {
     saveConfig({ url: u, key: key.trim() });
   }
 
-  return (
-    <section className="card">
-      <h2>Sincronizzazione</h2>
+  if (status.state === 'disabled') {
+    return (
+      <form className="card form" onSubmit={saveProject}>
+        <p className="muted small">
+          Collega un progetto Supabase per avere gli stessi dati su telefono e PC. URL e chiave pubblica (publishable o anon) sono
+          nelle impostazioni API del progetto.
+        </p>
+        <label className="field">
+          <span>URL del progetto</span>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" inputMode="url" />
+        </label>
+        <label className="field">
+          <span>Chiave pubblica</span>
+          <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="sb_publishable_…" />
+        </label>
+        {error && <p className="neg small">{error}</p>}
+        <button className="btn btn-primary" type="submit">
+          Collega
+        </button>
+      </form>
+    );
+  }
 
-      {status.state === 'disabled' && (
-        <form className="form" onSubmit={saveProject}>
-          <p className="muted small">
-            Collega un progetto Supabase per avere gli stessi dati su telefono e PC. Trovi URL e chiave pubblica
-            (publishable o anon) nelle impostazioni API del progetto. Le istruzioni complete sono nel README.
-          </p>
-          <label className="field">
-            <span>URL del progetto</span>
-            <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" inputMode="url" />
-          </label>
-          <label className="field">
-            <span>Chiave pubblica</span>
-            <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="sb_publishable_… oppure eyJ…" />
-          </label>
-          {error && <p className="neg small">{error}</p>}
-          <button className="btn primary" type="submit">
-            Collega
+  if (status.state === 'signed-out') {
+    return (
+      <form className="card form" onSubmit={login}>
+        <p className="muted small">Accedi con il tuo utente per sincronizzare telefono e PC. Lo fai una volta per dispositivo.</p>
+        <label className="field">
+          <span>Email</span>
+          <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Password</span>
+          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        {error && <p className="neg small">{error}</p>}
+        <button className="btn btn-primary" type="submit" disabled={busy || !email || !password}>
+          {busy ? 'Accesso…' : 'Accedi'}
+        </button>
+        {!configFromEnv && (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => saveConfig(null)}>
+            Scollega progetto
           </button>
-        </form>
-      )}
+        )}
+      </form>
+    );
+  }
 
-      {status.state === 'signed-out' && (
-        <form className="form" onSubmit={login}>
-          <p className="muted small">Accedi con l'utente creato su Supabase. Lo fai una volta per dispositivo.</p>
-          <label className="field">
-            <span>Email</span>
-            <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <label className="field">
-            <span>Password</span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          {error && <p className="neg small">{error}</p>}
-          <div className="row gap">
-            {!configFromEnv && (
-              <button type="button" className="btn ghost small" onClick={() => saveConfig(null)}>
-                Scollega progetto
-              </button>
-            )}
-            <span className="grow" />
-            <button className="btn primary" type="submit" disabled={busy || !email || !password}>
-              {busy ? 'Accesso…' : 'Accedi'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {(status.state === 'idle' || status.state === 'syncing' || status.state === 'error') && (
-        <>
-          <p className="small">
-            Connesso come <strong>{status.email}</strong>
-          </p>
-          <p className={`small ${status.state === 'error' ? 'neg' : 'muted'}`}>
+  const ok = status.state !== 'error';
+  return (
+    <div className="card">
+      <div className={`status-line ${ok ? 'ok' : 'err'}`}>
+        {ok ? <CloudCheck size={20} /> : <CloudOff size={20} />}
+        <div className="grow stack-s">
+          <span className="strong">
             {status.state === 'syncing'
               ? 'Sincronizzazione in corso…'
               : status.state === 'error'
-                ? `Sincronizzazione non riuscita: ${status.error}`
+                ? 'Sincronizzazione non riuscita'
                 : status.lastSync
                   ? `Sincronizzato ${daysAgo(status.lastSync)} alle ${timeFmt.format(status.lastSync)}`
                   : 'In attesa della prima sincronizzazione'}
+          </span>
+          <span className="muted small">
+            {status.state === 'error' ? status.error : status.email}
             {pending ? ` · ${pending} ${pending === 1 ? 'modifica da inviare' : 'modifiche da inviare'}` : ''}
-          </p>
-          <div className="row gap wrap">
-            <button className="btn small" onClick={() => scheduleSync(0)} disabled={status.state === 'syncing'}>
-              Sincronizza ora
-            </button>
-            <button
-              className="btn small ghost"
-              onClick={() => {
-                if (confirm('Riscaricare tutto dal server? Le modifiche locali non inviate restano e vengono inviate dopo.'))
-                  void fullResync();
-              }}
-            >
-              Riscarica tutto
-            </button>
-            <span className="grow" />
-            <button
-              className="btn small danger-text"
-              onClick={() => {
-                if (confirm('Uscire? I dati restano su questo dispositivo ma non si sincronizzano più finché non rientri.'))
-                  void signOut();
-              }}
-            >
-              Esci
-            </button>
-          </div>
-        </>
-      )}
-    </section>
+          </span>
+        </div>
+      </div>
+      <div className="row wrap">
+        <button className="btn btn-sm" onClick={() => scheduleSync(0)} disabled={status.state === 'syncing'}>
+          <RefreshCw size={15} /> Sincronizza ora
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => {
+            if (confirm('Riscaricare tutto dal server? Le modifiche locali non ancora inviate restano e vengono inviate dopo.'))
+              void fullResync();
+          }}
+        >
+          Riscarica tutto
+        </button>
+        <span className="grow" />
+        <button
+          className="btn btn-danger-text btn-sm"
+          onClick={() => {
+            if (confirm('Uscire? I dati restano su questo dispositivo ma non si sincronizzano finché non rientri.')) void signOut();
+          }}
+        >
+          <LogOut size={15} /> Esci
+        </button>
+      </div>
+    </div>
   );
 }

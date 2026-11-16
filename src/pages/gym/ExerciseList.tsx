@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { ChevronRight, Plus, Search } from 'lucide-react';
 import { db } from '../../db/db';
 import { Link } from '../../router';
 import { daysAgo } from '../../lib/format';
 import { ExerciseTags } from '../../components/ExerciseTags';
+import { PageHeader } from '../../components/PageHeader';
 import { GymTabs } from './GymTabs';
 
 const norm = (s: string) =>
@@ -39,40 +41,36 @@ export function ExerciseList() {
 
   return (
     <div className="page">
+      <PageHeader
+        title="Esercizi"
+        action={
+          <Link to="/pesi/esercizi/nuovo" className="btn btn-primary btn-sm">
+            <Plus size={16} /> Nuovo
+          </Link>
+        }
+      />
       <GymTabs active="/pesi/esercizi" />
-      <div className="row gap">
-        <input className="search grow" placeholder="Cerca esercizio…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <Link to="/pesi/esercizi/nuovo" className="btn">
-          + Nuovo
-        </Link>
+      <div className="search-box">
+        <Search size={18} />
+        <input placeholder="Cerca esercizio" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
-      <ul className="list">
+      <div className="card flush">
         {filtered.map((e) => {
           const s = stats?.get(e.id);
           return (
-            <li key={e.id}>
-              <Link to={`/pesi/esercizi/${e.id}`} className="list-item">
-                <div>
-                  <strong>{e.name}</strong>
-                  <ExerciseTags exercise={e} />
-                </div>
-                <div className="right muted small">
-                  {s ? (
-                    <>
-                      <span>{s.count} sessioni</span>
-                      <span>{daysAgo(s.last)}</span>
-                    </>
-                  ) : (
-                    <span>mai fatto</span>
-                  )}
-                </div>
-              </Link>
-            </li>
+            <Link key={e.id} to={`/pesi/esercizi/${e.id}`} className="list-row">
+              <span className="lr-body">
+                <span className="lr-title">{e.name}</span>
+                <span className="lr-sub">{s ? `${s.count} ${s.count === 1 ? 'sessione' : 'sessioni'} · ${daysAgo(s.last)}` : 'Mai fatto'}</span>
+                <ExerciseTags exercise={e} />
+              </span>
+              <ChevronRight size={18} className="chev" />
+            </Link>
           );
         })}
-        {filtered.length === 0 && <li className="muted pad">Nessun esercizio.</li>}
-      </ul>
-      <button className="btn ghost small" onClick={() => setShowArchived((v) => !v)}>
+        {filtered.length === 0 && <p className="muted small" style={{ padding: 16 }}>Nessun esercizio trovato.</p>}
+      </div>
+      <button className="btn btn-ghost btn-sm" onClick={() => setShowArchived((v) => !v)}>
         {showArchived ? 'Mostra esercizi attivi' : 'Mostra esercizi archiviati'}
       </button>
     </div>

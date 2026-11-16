@@ -1,6 +1,6 @@
 // Service worker minimale: l'app si apre anche senza rete (es. palestra senza segnale).
 // Pagina: prima la rete, poi la copia salvata. File statici (con hash nel nome): prima la cache.
-const CACHE = 'allenamento-v2';
+const CACHE = 'allenamento-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png'];
 
 self.addEventListener('install', (event) => {

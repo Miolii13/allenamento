@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Plus, Search } from 'lucide-react';
 import { db, uid } from '../db/db';
 import { Sheet } from './Sheet';
 import { ExerciseFields, type ExerciseDraft } from './ExerciseFields';
@@ -30,45 +31,40 @@ export function ExercisePicker({ onPick, onClose }: { onPick: (exerciseId: strin
   }
 
   return (
-    <Sheet title={draft ? 'Nuovo esercizio' : 'Scegli esercizio'} onClose={onClose}>
+    <Sheet title={draft ? 'Nuovo esercizio' : 'Aggiungi esercizio'} onClose={onClose}>
       {draft ? (
         <>
           <ExerciseFields value={draft} onChange={setDraft} />
-          <div className="row gap end">
-            <button className="btn ghost" onClick={() => setDraft(null)}>
+          <div className="row end">
+            <button className="btn" onClick={() => setDraft(null)}>
               Indietro
             </button>
-            <button className="btn primary" disabled={!draft.name.trim()} onClick={create}>
+            <button className="btn btn-primary" disabled={!draft.name.trim()} onClick={create}>
               Crea e aggiungi
             </button>
           </div>
         </>
       ) : (
         <>
-          <input
-            className="search"
-            autoFocus
-            placeholder="Cerca esercizio…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <ul className="pick-list">
-            {filtered.map((e) => (
-              <li key={e.id}>
-                <button onClick={() => onPick(e.id)}>
-                  <span>{e.name}</span>
-                  <ExerciseTags exercise={e} />
-                </button>
-              </li>
-            ))}
-            {filtered.length === 0 && <li className="muted pad">Nessun esercizio trovato.</li>}
-          </ul>
+          <div className="search-box">
+            <Search size={18} />
+            <input autoFocus placeholder="Cerca esercizio" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
           <button
-            className="btn block"
+            className="btn btn-block"
             onClick={() => setDraft({ name: query.trim(), loadType: 'standard', equipmentId: undefined, notes: undefined })}
           >
-            + Crea nuovo esercizio{query.trim() ? ` «${query.trim()}»` : ''}
+            <Plus size={18} /> Crea nuovo esercizio{query.trim() ? ` «${query.trim()}»` : ''}
           </button>
+          <div className="pick-list">
+            {filtered.map((e) => (
+              <button key={e.id} onClick={() => onPick(e.id)}>
+                <span>{e.name}</span>
+                <ExerciseTags exercise={e} />
+              </button>
+            ))}
+            {filtered.length === 0 && <p className="muted small">Nessun esercizio trovato.</p>}
+          </div>
         </>
       )}
     </Sheet>

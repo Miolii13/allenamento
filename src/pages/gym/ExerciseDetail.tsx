@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { ChevronRight, Dumbbell, Pencil } from 'lucide-react';
 import { db, uid } from '../../db/db';
 import { useSettings } from '../../db/repo';
 import { ExerciseFields, type ExerciseDraft } from '../../components/ExerciseFields';
 import { ExerciseTags } from '../../components/ExerciseTags';
 import { ProgressChart, type ChartPoint } from '../../components/ProgressChart';
+import { EmptyState, PageHeader } from '../../components/PageHeader';
 import { Link, navigate } from '../../router';
 import { fmtDate, fmtNum } from '../../lib/format';
 import { bestE1RM, entryVolume, equipmentOf, isLogged, setText, variantOf } from '../../lib/progress';
@@ -53,20 +55,20 @@ export function ExerciseDetail({ id }: { id: string }) {
   const form = (
     <section className="card">
       <ExerciseFields value={draft} onChange={setDraft} />
-      <div className="row gap end">
+      <div className="row">
         {!isNew && (
           <button
-            className="btn ghost"
+            className="btn btn-ghost btn-sm"
             onClick={() => db.exercises.update(id, { archived: !exercise?.archived }).then(() => setEditing(false))}
           >
             {exercise?.archived ? 'Ripristina' : 'Archivia'}
           </button>
         )}
         <span className="grow" />
-        <button className="btn ghost" onClick={() => (isNew ? navigate('/pesi/esercizi') : setEditing(false))}>
+        <button className="btn btn-sm" onClick={() => (isNew ? navigate('/pesi/esercizi') : setEditing(false))}>
           Annulla
         </button>
-        <button className="btn primary" disabled={!draft.name.trim()} onClick={save}>
+        <button className="btn btn-primary btn-sm" disabled={!draft.name.trim()} onClick={save}>
           Salva
         </button>
       </div>
@@ -76,12 +78,7 @@ export function ExerciseDetail({ id }: { id: string }) {
   if (isNew || !exercise) {
     return (
       <div className="page">
-        <header className="page-head">
-          <Link to="/pesi/esercizi" className="back">
-            ‹ Esercizi
-          </Link>
-          <h1>Nuovo esercizio</h1>
-        </header>
+        <PageHeader title="Nuovo esercizio" back={{ to: '/pesi/esercizi', label: 'Esercizi' }} />
         {form}
       </div>
     );
@@ -103,11 +100,7 @@ export function ExerciseDetail({ id }: { id: string }) {
   );
 
   const points: ChartPoint[] = rows
-    .map((r) => ({
-      ts: r.w.startedAt,
-      value: bodyweight ? r.volume : (r.e1rm ?? 0),
-      detail: r.variant?.name,
-    }))
+    .map((r) => ({ ts: r.w.startedAt, value: bodyweight ? r.volume : (r.e1rm ?? 0), detail: r.variant?.name }))
     .filter((p) => p.value > 0)
     .reverse();
 
@@ -117,59 +110,74 @@ export function ExerciseDetail({ id }: { id: string }) {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <Link to="/pesi/esercizi" className="back">
-          ‹ Esercizi
-        </Link>
-        <div className="row gap between">
-          <h1>{exercise.name}</h1>
-          {!editing && (
-            <button className="btn ghost small" onClick={() => setEditing(true)}>
-              Modifica
+      <PageHeader
+        title={exercise.name}
+        back={{ to: '/pesi/esercizi', label: 'Esercizi' }}
+        action={
+          !editing && (
+            <button className="icon-btn filled" onClick={() => setEditing(true)} aria-label="Modifica esercizio">
+              <Pencil size={18} />
             </button>
-          )}
-        </div>
-        <ExerciseTags exercise={exercise} />
-        {exercise.notes && <p className="muted">{exercise.notes}</p>}
-      </header>
+          )
+        }
+        subtitle={exercise.notes}
+      />
+      <ExerciseTags exercise={exercise} />
 
       {editing && form}
 
       {rows.length > 0 && (
-        <section className="card">
-          <h3>{bodyweight ? 'Ripetizioni totali per sessione' : '1RM stimato della serie migliore'}</h3>
-          {group && <p className="muted small">Carichi riportati su {group.variants[0]?.name} per confrontare le sessioni.</p>}
-          <ProgressChart points={points} unit={bodyweight ? 'reps' : 'kg'} />
-          <p className="muted small">
-            Record: <strong>{fmtNum(Math.round(best * 10) / 10)}</strong> {bodyweight ? 'reps in una serie' : 'kg (1RM stimato)'}
-          </p>
-        </section>
+        <>
+          <div className="stats-grid">
+            <div className="stat">
+              <b>{rows.length}</b>
+              <span>{rows.length === 1 ? 'sessione' : 'sessioni'}</span>
+            </div>
+            <div className="stat">
+              <b>{fmtNum(Math.round(best * 10) / 10)}</b>
+              <span>{bodyweight ? 'reps record' : 'kg 1RM stimato'}</span>
+            </div>
+          </div>
+          <section className="card">
+            <h3>{bodyweight ? 'Ripetizioni totali per sessione' : '1RM stimato della serie migliore'}</h3>
+            {group && <p className="muted small">Carichi riportati su {group.variants[0]?.name} per confrontare le sessioni.</p>}
+            <ProgressChart points={points} unit={bodyweight ? 'reps' : 'kg'} />
+          </section>
+        </>
       )}
 
-      <h3>Sessioni</h3>
-      {rows.length === 0 && <p className="empty">Non hai ancora fatto questo esercizio.</p>}
-      <ul className="list">
-        {rows.map(({ w, e, variant }) => (
-          <li key={`${w.id}-${e.id}`}>
-            <Link to={`/pesi/storico/${w.id}`} className="list-item column">
-              <div className="row between">
-                <strong>{fmtDate(w.startedAt)}</strong>
-                <span className="muted small">
-                  {w.templateName}
-                  {variant ? ` · ${variant.name}` : ''}
+      <section className="section">
+        <div className="section-title">
+          <h2>Sessioni</h2>
+        </div>
+        {rows.length === 0 ? (
+          <div className="card">
+            <EmptyState icon={<Dumbbell size={26} />} title="Ancora nessuna sessione" text="Le serie che registri compariranno qui." />
+          </div>
+        ) : (
+          <div className="card flush">
+            {rows.map(({ w, e, variant }) => (
+              <Link key={`${w.id}-${e.id}`} to={`/pesi/storico/${w.id}`} className="list-row">
+                <span className="lr-body">
+                  <span className="lr-title">{fmtDate(w.startedAt)}</span>
+                  <span className="tnum strong text-2 small">
+                    {e.sets
+                      .filter(isLogged)
+                      .map((s) => (s.type === 'drop' ? '↳' : '') + setText(s, bodyweight))
+                      .join('  ·  ')}
+                  </span>
+                  <span className="lr-sub">
+                    {w.templateName}
+                    {variant ? ` · ${variant.name}` : ''}
+                    {e.notes ? ` · ${e.notes}` : ''}
+                  </span>
                 </span>
-              </div>
-              <span className="sets-text">
-                {e.sets
-                  .filter(isLogged)
-                  .map((s) => (s.type === 'drop' ? '↳' : '') + setText(s, bodyweight))
-                  .join('  ·  ')}
-              </span>
-              {e.notes && <span className="muted small">{e.notes}</span>}
-            </Link>
-          </li>
-        ))}
-      </ul>
+                <ChevronRight size={18} className="chev" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
