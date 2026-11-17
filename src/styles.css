@@ -1187,6 +1187,99 @@ textarea::placeholder {
   border-radius: 999px;
 }
 
+/* carosello degli esercizi */
+.stepper {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.stepper::-webkit-scrollbar {
+  display: none;
+}
+.step {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.step.done {
+  background: var(--success-fill);
+  color: #fff;
+}
+.step.current {
+  box-shadow: 0 0 0 2px var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.step.done.current {
+  background: var(--success-fill);
+  color: #fff;
+}
+.carousel {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px; /* uguale al margine laterale: la pagina accanto resta fuori schermo */
+  margin: 0 -16px;
+  padding: 0 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 16px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  transition: height 0.2s ease;
+}
+.carousel::-webkit-scrollbar {
+  display: none;
+}
+.slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 4px;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.slide-kicker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.slide-kicker .chip {
+  letter-spacing: 0;
+  text-transform: none;
+}
+.slide-nav {
+  display: flex;
+  gap: 8px;
+}
+.slide-nav .btn:first-child {
+  flex: 0 0 52px;
+  padding: 0;
+}
+
 /* timer di recupero */
 .rest-bar {
   position: fixed;
@@ -1607,5 +1700,24 @@ textarea::placeholder {
   color: var(--success);
 }
 .status-line.err {
+  color: var(--danger);
+}
+
+/* ---------- Menu impostazioni ---------- */
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-note {
+  margin: 0 4px;
+}
+.tile-icon.warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.tile-icon.danger {
+  background: var(--danger-soft);
   color: var(--danger);
 }

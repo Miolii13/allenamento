@@ -9,7 +9,9 @@ import { WorkoutDetail } from './pages/gym/WorkoutDetail';
 import { ExerciseList } from './pages/gym/ExerciseList';
 import { ExerciseDetail } from './pages/gym/ExerciseDetail';
 import { StatsPage } from './pages/gym/StatsPage';
-import { SettingsPage } from './pages/SettingsPage';
+import { SettingsHome } from './pages/settings/SettingsHome';
+import { BackupSettings, RestSettings, SyncSettings, WeekPlanSettings } from './pages/settings/SettingsPages';
+import { EquipmentSettings } from './pages/settings/EquipmentSettings';
 import { ComingSoon } from './pages/ComingSoon';
 import { RestTimerBar } from './components/RestTimer';
 
@@ -32,7 +34,14 @@ function Screen({ parts, fresh }: { parts: string[]; fresh: boolean }) {
     );
   if (section === 'alimentazione')
     return <ComingSoon icon={<Utensils size={28} />} title="Alimentazione" text="Qui arriverà il diario dell'alimentazione." />;
-  if (section === 'impostazioni') return <SettingsPage />;
+  if (section === 'impostazioni') {
+    if (sub === 'sincronizzazione') return <SyncSettings />;
+    if (sub === 'settimana') return <WeekPlanSettings />;
+    if (sub === 'recupero') return <RestSettings />;
+    if (sub === 'backup') return <BackupSettings />;
+    if (sub === 'attrezzi' && id) return <EquipmentSettings key={id} id={id} />;
+    return <SettingsHome />;
+  }
 
   // sala pesi
   if (sub === 'scheda' && id) return <TemplateEditor key={id} id={id} />;

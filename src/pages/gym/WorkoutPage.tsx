@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   Check,
-  ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Clock,
   Equal,
+  Flag,
   History,
   Layers,
   Minus,
   MoreHorizontal,
   Plus,
+  Repeat,
   RotateCcw,
   StickyNote,
   Timer,
@@ -82,6 +84,26 @@ function setTags(sets: { type: SetType; target: string; note?: string }[]) {
   });
 }
 
+/** Una pagina del carosello: un esercizio, oppure gli esercizi di un superset (si fanno alternati). */
+interface Group {
+  key: string;
+  superset?: string;
+  items: { entry: WorkoutEntry; index: number }[];
+}
+
+function buildGroups(entries: WorkoutEntry[]): Group[] {
+  const groups: Group[] = [];
+  entries.forEach((entry, index) => {
+    const last = groups[groups.length - 1];
+    if (entry.superset && last?.superset === entry.superset) last.items.push({ entry, index });
+    else groups.push({ key: entry.id, superset: entry.superset, items: [{ entry, index }] });
+  });
+  return groups;
+}
+
+const entryComplete = (e: WorkoutEntry) => e.sets.length > 0 && e.sets.every((s) => s.done);
+const groupComplete = (g: Group) => g.items.every(({ entry }) => entryComplete(entry));
+
 export function WorkoutPage({ id }: { id: string }) {
   const [w, setW] = useState<Workout | null>();
   const exMap = useExerciseMap();
@@ -90,6 +112,12 @@ export function WorkoutPage({ id }: { id: string }) {
   const [picker, setPicker] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [current, setCurrent] = useState(0);
+  const [height, setHeight] = useState<number>();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const completeRef = useRef<Record<string, boolean>>({});
+  const positioned = useRef(false);
 
   useEffect(() => {
     db.workouts.get(id).then((x) => setW(x ?? null));
@@ -112,15 +140,65 @@ export function WorkoutPage({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prevKey]);
 
-  const supersetLabels = useMemo(() => {
-    if (!w) return [];
-    return w.entries.map((e, i) => {
-      if (!e.superset) return undefined;
-      let n = 1;
-      for (let j = i - 1; j >= 0 && w.entries[j].superset === e.superset; j--) n++;
-      return `${e.superset}${n}`;
+  const groups = useMemo(() => (w ? buildGroups(w.entries) : []), [w]);
+  const slideCount = groups.length + 1; // + pagina finale
+
+  const goTo = useCallback((i: number, smooth = true) => {
+    const track = trackRef.current;
+    const slide = slideRefs.current[i];
+    if (!track || !slide) return;
+    const pad = parseFloat(getComputedStyle(track).paddingLeft || '0');
+    const left = track.scrollLeft + slide.getBoundingClientRect().left - track.getBoundingClientRect().left - pad;
+    track.scrollTop = 0;
+    track.scrollTo({ left, top: 0, behavior: smooth ? 'smooth' : 'auto' });
+    setCurrent(i);
+    window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+  }, []);
+
+  // all'apertura parto dal primo esercizio non completato
+  useLayoutEffect(() => {
+    if (!w || positioned.current || !groups.length) return;
+    positioned.current = true;
+    const first = groups.findIndex((g) => !groupComplete(g));
+    goTo(first === -1 ? (w.status === 'active' ? groups.length : 0) : first, false);
+  }, [w, groups, goTo]);
+
+  // l'altezza del carosello segue la pagina visibile (niente spazio vuoto sotto le pagine corte)
+  useEffect(() => {
+    const el = slideRefs.current[current];
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [current, slideCount]);
+
+  // quando completi l'esercizio (o il superset) della pagina, passo al prossimo da fare
+  const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (!w) return;
+    groups.forEach((g, gi) => {
+      const done = groupComplete(g);
+      const was = completeRef.current[g.key];
+      completeRef.current[g.key] = done;
+      if (done && was === false && gi === current && w.status === 'active') {
+        const next = groups.findIndex((x, k) => k > gi && !groupComplete(x));
+        clearTimeout(advanceTimer.current);
+        advanceTimer.current = setTimeout(() => goTo(next === -1 ? groups.length : next), 700);
+      }
     });
-  }, [w]);
+  }, [w, groups, current, goTo]);
+  useEffect(() => () => clearTimeout(advanceTimer.current), []);
+
+  const onScroll = () => {
+    const track = trackRef.current;
+    const first = slideRefs.current[0];
+    if (!track || !first) return;
+    // il carosello scorre solo in orizzontale: in verticale scorre la pagina
+    if (track.scrollTop) track.scrollTop = 0;
+    const step = first.offsetWidth + parseFloat(getComputedStyle(track).columnGap || '0');
+    const i = Math.round(track.scrollLeft / step);
+    if (i !== current && i >= 0 && i < slideCount) setCurrent(i);
+  };
 
   if (w === undefined || !exMap) return <p className="page muted">Caricamento…</p>;
   if (w === null)
@@ -162,6 +240,8 @@ export function WorkoutPage({ id }: { id: string }) {
     const p = await findPrevEntry(exerciseId, workout.startedAt, workout.id);
     const sets = p ? p.entry.sets.map((s) => newSet(s.type, s.target, s.note)) : [newSet('work', ''), newSet('work', '')];
     save({ ...workout, entries: [...workout.entries, newEntry(exerciseId, sets)] });
+    // il nuovo esercizio diventa la penultima pagina: ci vado appena è disegnata
+    setTimeout(() => goTo(groups.length), 50);
   }
 
   async function finish() {
@@ -183,9 +263,11 @@ export function WorkoutPage({ id }: { id: string }) {
   }
 
   const emptySets = countEmptySets(workout);
+  const groupName = (g: Group) => g.items.map(({ entry }) => exMap.get(entry.exerciseId)?.name ?? '?').join(' + ');
+  const stepLabel = (g: Group) => (g.superset ? g.superset : String(g.items[0].index + 1));
 
   return (
-    <div className="page">
+    <div className="page workout-page">
       <header className="wk-header">
         <div className="wk-title">
           <Link to={isActive ? '/pesi' : `/pesi/storico/${workout.id}`} className="icon-btn" aria-label="Indietro">
@@ -214,81 +296,158 @@ export function WorkoutPage({ id }: { id: string }) {
             </button>
           )}
         </div>
-        <div className={`progress${doneSets === totalSets && totalSets > 0 ? ' success' : ''}`}>
-          <div style={{ width: `${totalSets ? (doneSets / totalSets) * 100 : 0}%` }} />
+        <div className="stepper" role="tablist" aria-label="Esercizi">
+          {groups.map((g, gi) => (
+            <button
+              key={g.key}
+              role="tab"
+              aria-selected={gi === current}
+              aria-label={groupName(g)}
+              className={`step${groupComplete(g) ? ' done' : ''}${gi === current ? ' current' : ''}`}
+              onClick={() => goTo(gi)}
+            >
+              {groupComplete(g) ? <Check size={14} strokeWidth={3} /> : stepLabel(g)}
+            </button>
+          ))}
+          <button
+            role="tab"
+            aria-selected={current === groups.length}
+            aria-label="Fine allenamento"
+            className={`step${current === groups.length ? ' current' : ''}`}
+            onClick={() => goTo(groups.length)}
+          >
+            <Flag size={14} />
+          </button>
         </div>
       </header>
 
-      {!isActive && (
-        <label className="field">
-          <span>Data e ora</span>
-          <input
-            type="datetime-local"
-            value={toLocalInput(workout.startedAt)}
-            onChange={(e) => {
-              const ts = new Date(e.target.value).getTime();
-              if (Number.isNaN(ts)) return;
-              const dur = workout.finishedAt ? workout.finishedAt - workout.startedAt : 0;
-              save({ ...workout, startedAt: ts, finishedAt: ts + dur });
-            }}
-          />
-        </label>
-      )}
+      <div className="carousel" ref={trackRef} onScroll={onScroll} style={height ? { height } : undefined}>
+        {groups.map((g, gi) => {
+          const nextGroup = groups[gi + 1];
+          return (
+            <div key={g.key} className="slide" ref={(el) => (slideRefs.current[gi] = el)}>
+              <div className="slide-kicker">
+                <span>
+                  Esercizio {gi + 1} di {groups.length}
+                </span>
+                {g.superset && (
+                  <span className="chip accent">
+                    <Repeat size={12} /> Superset {g.superset}
+                  </span>
+                )}
+              </div>
+              {g.superset && g.items.length > 1 && (
+                <p className="muted small">Alterna le serie degli esercizi: il recupero parte dopo l'ultimo del gruppo.</p>
+              )}
+              {g.items.map(({ entry, index }, k) => {
+                const exercise = exMap.get(entry.exerciseId);
+                return (
+                  <EntryCard
+                    key={entry.id}
+                    index={index}
+                    entry={entry}
+                    exercise={exercise}
+                    group={equipmentOf(settings, exercise)}
+                    prev={prev[entry.exerciseId]}
+                    supersetLabel={g.superset && g.items.length > 1 ? `${g.superset}${k + 1}` : undefined}
+                    restAfterSet={k === g.items.length - 1}
+                    timerEnabled={isActive}
+                    isFirst={index === 0}
+                    isLast={index === workout.entries.length - 1}
+                    onChange={updateEntry}
+                    onMove={(dir) => moveEntry(index, dir)}
+                    onRemove={() => removeEntry(entry)}
+                  />
+                );
+              })}
+              <div className="slide-nav">
+                <button className="btn" disabled={gi === 0} onClick={() => goTo(gi - 1)} aria-label="Esercizio precedente">
+                  <ChevronLeft size={20} />
+                </button>
+                <button className="btn btn-primary grow" onClick={() => goTo(gi + 1)}>
+                  <span className="ellipsis">{nextGroup ? `Avanti: ${groupName(nextGroup)}` : 'Vai alla fine'}</span>
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
-      {workout.entries.length === 0 && (
-        <p className="muted" style={{ textAlign: 'center' }}>
-          Nessun esercizio: aggiungine uno qui sotto.
-        </p>
-      )}
+        <div className="slide" ref={(el) => (slideRefs.current[groups.length] = el)}>
+          <div className="slide-kicker">
+            <span>{isActive ? 'Fine allenamento' : 'Riepilogo'}</span>
+          </div>
 
-      {workout.entries.map((entry, i) => {
-        const exercise = exMap.get(entry.exerciseId);
-        const nextEntry = workout.entries[i + 1];
-        return (
-          <EntryCard
-            key={entry.id}
-            index={i}
-            entry={entry}
-            exercise={exercise}
-            group={equipmentOf(settings, exercise)}
-            prev={prev[entry.exerciseId]}
-            supersetLabel={supersetLabels[i]}
-            // in superset il recupero parte solo dopo l'ultimo esercizio del gruppo
-            restAfterSet={!entry.superset || nextEntry?.superset !== entry.superset}
-            timerEnabled={isActive}
-            isFirst={i === 0}
-            isLast={i === workout.entries.length - 1}
-            onChange={updateEntry}
-            onMove={(dir) => moveEntry(i, dir)}
-            onRemove={() => removeEntry(entry)}
-          />
-        );
-      })}
+          {!isActive && (
+            <label className="field">
+              <span>Data e ora</span>
+              <input
+                type="datetime-local"
+                value={toLocalInput(workout.startedAt)}
+                onChange={(e) => {
+                  const ts = new Date(e.target.value).getTime();
+                  if (Number.isNaN(ts)) return;
+                  const dur = workout.finishedAt ? workout.finishedAt - workout.startedAt : 0;
+                  save({ ...workout, startedAt: ts, finishedAt: ts + dur });
+                }}
+              />
+            </label>
+          )}
 
-      <button className="btn btn-block" onClick={() => setPicker(true)}>
-        <Plus size={18} /> Aggiungi esercizio
-      </button>
+          {groups.length > 0 ? (
+            <div className="card flush">
+              {groups.map((g, gi) => {
+                const sets = g.items.reduce((n, { entry }) => n + entry.sets.length, 0);
+                const logged = g.items.reduce((n, { entry }) => n + entry.sets.filter(isLogged).length, 0);
+                const done = groupComplete(g);
+                return (
+                  <button key={g.key} className="list-row" onClick={() => goTo(gi)}>
+                    <span className={`tile-icon${done ? ' success' : ''}`}>{done ? <Check size={18} strokeWidth={3} /> : stepLabel(g)}</span>
+                    <span className="lr-body">
+                      <span className="lr-title">{groupName(g)}</span>
+                      <span className="lr-sub">
+                        {logged}/{sets} serie
+                      </span>
+                    </span>
+                    <ChevronRight size={18} className="chev" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="muted">Nessun esercizio: aggiungine uno.</p>
+          )}
 
-      <label className="field">
-        <span>Note sull'allenamento</span>
-        <textarea
-          rows={2}
-          placeholder="Sensazioni, energia, dolori…"
-          value={workout.notes ?? ''}
-          onChange={(e) => save({ ...workout, notes: e.target.value || undefined })}
-        />
-      </label>
-
-      {isActive && (
-        <div className="stack-s">
-          <button className="btn btn-success btn-lg btn-block" onClick={() => setFinishing(true)}>
-            <Check size={20} strokeWidth={3} /> Termina allenamento
+          <button className="btn btn-block" onClick={() => setPicker(true)}>
+            <Plus size={18} /> Aggiungi esercizio
           </button>
-          <button className="btn btn-danger-text btn-block" onClick={discard}>
-            Annulla allenamento
-          </button>
+
+          <label className="field">
+            <span>Note sull'allenamento</span>
+            <textarea
+              rows={2}
+              placeholder="Sensazioni, energia, dolori…"
+              value={workout.notes ?? ''}
+              onChange={(e) => save({ ...workout, notes: e.target.value || undefined })}
+            />
+          </label>
+
+          {isActive ? (
+            <div className="stack-s">
+              <button className="btn btn-success btn-lg btn-block" onClick={() => setFinishing(true)}>
+                <Check size={20} strokeWidth={3} /> Termina allenamento
+              </button>
+              <button className="btn btn-danger-text btn-block" onClick={discard}>
+                Annulla allenamento
+              </button>
+            </div>
+          ) : (
+            <button className="btn btn-primary btn-lg btn-block" onClick={doneEditing}>
+              Salva modifiche
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       {picker && <ExercisePicker onPick={addExercise} onClose={() => setPicker(false)} />}
 
@@ -345,16 +504,9 @@ interface EntryCardProps {
 function EntryCard(props: EntryCardProps) {
   const { index, entry, exercise, group, prev, supersetLabel, restAfterSet, timerEnabled, isFirst, isLast, onChange, onMove, onRemove } =
     props;
-  const loggedSets = entry.sets.filter(isLogged).length;
-  const complete = entry.sets.length > 0 && entry.sets.every((s) => s.done);
-  const [open, setOpen] = useState(!complete);
+  const complete = entryComplete(entry);
   const [menu, setMenu] = useState(false);
   const [showNote, setShowNote] = useState(!!entry.notes);
-
-  // quando completi l'ultima serie l'esercizio si chiude da solo
-  useEffect(() => {
-    if (complete) setOpen(false);
-  }, [complete]);
 
   const variant = variantOf(group, entry.variantId);
   const prevVariant = variantOf(group, prev?.entry.variantId);
@@ -388,14 +540,12 @@ function EntryCard(props: EntryCardProps) {
     // recupero: non tra serie e drop/myo, né a metà di un superset
     const nextType = entry.sets[i + 1]?.type;
     const chained = nextType === 'drop' || nextType === 'myo';
-    const lastSet = i === entry.sets.length - 1;
-    if (timerEnabled && !chained && (restAfterSet || !lastSet)) startRest(entry.rest ?? getDefaultRest());
+    if (timerEnabled && !chained && restAfterSet) startRest(entry.rest ?? getDefaultRest());
   };
 
   const addSet = (type: SetType) => {
     const last = [...entry.sets].reverse().find((s) => s.type === type);
     onChange({ ...entry, sets: [...entry.sets, newSet(type, last?.target ?? '')] });
-    setOpen(true);
   };
 
   const prevSummary = prev?.entry.sets
@@ -404,195 +554,163 @@ function EntryCard(props: EntryCardProps) {
     .join(' · ');
 
   return (
-    <section className={`ex-card${entry.superset ? ' superset' : ''}${complete ? ' complete' : ''}${open ? '' : ' collapsed'}`}>
+    <section className={`ex-card${complete ? ' complete' : ''}`}>
       <div className="ex-head">
         <span className="ex-index">{complete ? <Check size={17} strokeWidth={3} /> : index + 1}</span>
-        <button className="ex-titles ex-name" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-          <span>{exercise?.name ?? 'Esercizio eliminato'}</span>
+        <div className="ex-titles">
+          <span className="ex-name">{exercise?.name ?? 'Esercizio eliminato'}</span>
           <span className="ex-sub">
             {supersetLabel && <span className="badge">{supersetLabel}</span>}
             {variant && <span className="chip warning">{variant.name}</span>}
-            {open ? (
-              <>
-                <span>Obiettivo {targetSummary || '—'}</span>
-                {restAfterSet && (
-                  <span className="row" style={{ gap: 3 }}>
-                    · <Timer size={12} /> {fmtClock(entry.rest ?? getDefaultRest())}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="ex-collapsed-sum">
-                {loggedSets}/{entry.sets.length} serie
-                {loggedSets > 0 &&
-                  ` · ${entry.sets
-                    .filter(isLogged)
-                    .map((s) => setText(s, bodyweight))
-                    .join(' · ')}`}
+            <span>Obiettivo {targetSummary || '—'}</span>
+            {restAfterSet && (
+              <span className="row" style={{ gap: 3 }}>
+                · <Timer size={12} /> {fmtClock(entry.rest ?? getDefaultRest())}
               </span>
             )}
           </span>
+        </div>
+        <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Altre azioni">
+          <MoreHorizontal size={20} />
         </button>
-        {open ? (
-          <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Altre azioni">
-            <MoreHorizontal size={20} />
-          </button>
-        ) : (
-          <button className="icon-btn" onClick={() => setOpen(true)} aria-label="Apri esercizio">
-            <ChevronDown size={20} />
-          </button>
-        )}
       </div>
 
-      {open && (
-        <>
-          {(entry.hint || exercise?.notes) && (
-            <p className="muted small">{[entry.hint, exercise?.notes].filter(Boolean).join(' · ')}</p>
-          )}
+      {(entry.hint || exercise?.notes) && <p className="muted small">{[entry.hint, exercise?.notes].filter(Boolean).join(' · ')}</p>}
 
-          {prev ? (
-            <div className="prev-box">
-              <History size={16} />
-              <div className="grow stack-s">
-                <span className="pb-label">
-                  Ultima volta · {fmtDateShort(prev.workout.startedAt)} ({daysAgo(prev.workout.startedAt)})
-                  {prevVariant ? ` · ${prevVariant.name}` : ''}
+      {prev ? (
+        <div className="prev-box">
+          <History size={16} />
+          <div className="grow stack-s">
+            <span className="pb-label">
+              Ultima volta · {fmtDateShort(prev.workout.startedAt)} ({daysAgo(prev.workout.startedAt)})
+              {prevVariant ? ` · ${prevVariant.name}` : ''}
+            </span>
+            <span className="pb-sets">{prevSummary}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="prev-box">
+          <History size={16} />
+          <span className="pb-label">Prima volta: oggi stabilisci il punto di partenza.</span>
+        </div>
+      )}
+
+      {shouldIncrease(prev?.entry) && (
+        <div className="banner success">
+          <TrendingUp size={18} />
+          <span>L'ultima volta hai chiuso il range in tutte le serie: prova ad aumentare il carico.</span>
+        </div>
+      )}
+
+      {group && needVariant && (
+        <div className="variant-picker">
+          <p>
+            <TriangleAlert size={18} />
+            {group.question}
+          </p>
+          <div className="variant-btns">
+            {group.variants.map((v) => (
+              <button key={v.id} className="btn" onClick={() => onChange({ ...entry, variantId: v.id })}>
+                {v.name}
+                {prevVariant?.id === v.id && <small>usata l'ultima volta</small>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {converted && (
+        <p className="muted small">
+          L'ultima volta eri su {prevVariant!.name}: nella colonna «Prima» i pesi sono già convertiti su {variant!.name}.
+        </p>
+      )}
+
+      {!needVariant && (
+        <div className="set-grid">
+          <div className="set-row head">
+            <span>Set</span>
+            <span>Prima</span>
+            <span>{exercise ? loadUnit(exercise.loadType) : 'Kg'}</span>
+            <span>Reps</span>
+            <span />
+          </div>
+          {entry.sets.map((s, i) => {
+            const p = previousFor(i);
+            // peso vuoto = quello della volta prima (è il valore che la ✓ inserirebbe)
+            const effective = s.weight === undefined && p?.weight !== undefined ? { ...s, weight: p.weight } : s;
+            const trend = compareSet(effective, p?.set, group, variant, prevVariant);
+            const prevText = p ? (converted && p.weight !== undefined ? `≈${fmtNum(p.weight)}×${p.reps}` : setText(p.set, bodyweight)) : '—';
+            return (
+              <div key={s.id} className={`set-row ${s.type}${s.done ? ' done' : ''}`}>
+                <span className="set-num">{tags[i].short}</span>
+                <span className="set-prev">
+                  <span className="sp-val">
+                    {prevText}
+                    {trend && <TrendIcon trend={trend} />}
+                  </span>
+                  {tags[i].long && <span className="sp-target">{tags[i].long}</span>}
                 </span>
-                <span className="pb-sets">{prevSummary}</span>
+                <NumInput
+                  value={s.weight}
+                  onChange={(v) => updateSet(s.id, { weight: v })}
+                  placeholder={p?.weight !== undefined ? fmtNum(p.weight) : bodyweight ? '0' : '–'}
+                  aria-label={`Carico serie ${tags[i].short}`}
+                />
+                <NumInput
+                  id={`reps-${s.id}`}
+                  integer
+                  value={s.reps}
+                  onChange={(v) => updateSet(s.id, { reps: v })}
+                  placeholder={p ? String(p.reps) : s.target || '–'}
+                  aria-label={`Ripetizioni serie ${tags[i].short}`}
+                />
+                <button
+                  className={`set-check${s.done ? ' on' : ''}`}
+                  onClick={() => toggleDone(s, i)}
+                  aria-label={s.done ? 'Segna come non fatta' : 'Segna serie fatta'}
+                  aria-pressed={s.done}
+                >
+                  <Check size={22} strokeWidth={3} />
+                </button>
               </div>
-            </div>
-          ) : (
-            <div className="prev-box">
-              <History size={16} />
-              <span className="pb-label">Prima volta: oggi stabilisci il punto di partenza.</span>
-            </div>
-          )}
+            );
+          })}
+        </div>
+      )}
 
-          {shouldIncrease(prev?.entry) && (
-            <div className="banner success">
-              <TrendingUp size={18} />
-              <span>L'ultima volta hai chiuso il range in tutte le serie: prova ad aumentare il carico.</span>
-            </div>
-          )}
+      {!needVariant && (
+        <div className="ex-actions">
+          <button className="btn" onClick={() => addSet('work')}>
+            <Plus size={15} /> Serie
+          </button>
+          <button className="btn" onClick={() => addSet('drop')}>
+            <Plus size={15} /> Drop
+          </button>
+          <button className="btn" onClick={() => setShowNote((v) => !v)}>
+            <StickyNote size={15} /> Nota
+          </button>
+        </div>
+      )}
 
-          {group && needVariant && (
-            <div className="variant-picker">
-              <p>
-                <TriangleAlert size={18} />
-                {group.question}
-              </p>
-              <div className="variant-btns">
-                {group.variants.map((v) => (
-                  <button key={v.id} className="btn" onClick={() => onChange({ ...entry, variantId: v.id })}>
-                    {v.name}
-                    {prevVariant?.id === v.id && <small>usata l'ultima volta</small>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {converted && (
-            <p className="muted small">
-              L'ultima volta eri su {prevVariant!.name}: nella colonna «Prima» i pesi sono già convertiti su {variant!.name}.
-            </p>
-          )}
-
-          {!needVariant && (
-            <div className="set-grid">
-              <div className="set-row head">
-                <span>Set</span>
-                <span>Prima</span>
-                <span>{exercise ? loadUnit(exercise.loadType) : 'Kg'}</span>
-                <span>Reps</span>
-                <span />
-              </div>
-              {entry.sets.map((s, i) => {
-                const p = previousFor(i);
-                // peso vuoto = quello della volta prima (è il valore che la ✓ inserirebbe)
-                const effective = s.weight === undefined && p?.weight !== undefined ? { ...s, weight: p.weight } : s;
-                const trend = compareSet(effective, p?.set, group, variant, prevVariant);
-                const prevText = p
-                  ? converted && p.weight !== undefined
-                    ? `≈${fmtNum(p.weight)}×${p.reps}`
-                    : setText(p.set, bodyweight)
-                  : '—';
-                return (
-                  <div key={s.id} className={`set-row ${s.type}${s.done ? ' done' : ''}`}>
-                    <span className="set-num">{tags[i].short}</span>
-                    <span className="set-prev">
-                      <span className="sp-val">
-                        {prevText}
-                        {trend && <TrendIcon trend={trend} />}
-                      </span>
-                      {tags[i].long && <span className="sp-target">{tags[i].long}</span>}
-                    </span>
-                    <NumInput
-                      value={s.weight}
-                      onChange={(v) => updateSet(s.id, { weight: v })}
-                      placeholder={p?.weight !== undefined ? fmtNum(p.weight) : bodyweight ? '0' : '–'}
-                      aria-label={`Carico serie ${tags[i].short}`}
-                    />
-                    <NumInput
-                      id={`reps-${s.id}`}
-                      integer
-                      value={s.reps}
-                      onChange={(v) => updateSet(s.id, { reps: v })}
-                      placeholder={p ? String(p.reps) : s.target || '–'}
-                      aria-label={`Ripetizioni serie ${tags[i].short}`}
-                    />
-                    <button
-                      className={`set-check${s.done ? ' on' : ''}`}
-                      onClick={() => toggleDone(s, i)}
-                      aria-label={s.done ? 'Segna come non fatta' : 'Segna serie fatta'}
-                      aria-pressed={s.done}
-                    >
-                      <Check size={22} strokeWidth={3} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {!needVariant && (
-            <div className="ex-actions">
-              <button className="btn" onClick={() => addSet('work')}>
-                <Plus size={15} /> Serie
-              </button>
-              <button className="btn" onClick={() => addSet('drop')}>
-                <Plus size={15} /> Drop
-              </button>
-              <button className="btn" onClick={() => setShowNote((v) => !v)}>
-                <StickyNote size={15} /> Nota
-              </button>
-            </div>
-          )}
-
-          {showNote && (
-            <textarea
-              rows={2}
-              placeholder="Nota su questo esercizio (presa, sensazioni…)"
-              value={entry.notes ?? ''}
-              onChange={(e) => onChange({ ...entry, notes: e.target.value || undefined })}
-            />
-          )}
-        </>
+      {showNote && (
+        <textarea
+          rows={2}
+          placeholder="Nota su questo esercizio (presa, sensazioni…)"
+          value={entry.notes ?? ''}
+          onChange={(e) => onChange({ ...entry, notes: e.target.value || undefined })}
+        />
       )}
 
       {menu && (
         <Sheet title={exercise?.name ?? 'Esercizio'} onClose={() => setMenu(false)}>
           <div className="menu-list">
             <button disabled={isFirst} onClick={() => (onMove(-1), setMenu(false))}>
-              <ArrowUp size={18} /> Sposta su
+              <ArrowUp size={18} /> Sposta prima
             </button>
             <button disabled={isLast} onClick={() => (onMove(1), setMenu(false))}>
-              <ArrowDown size={18} /> Sposta giù
+              <ArrowDown size={18} /> Sposta dopo
             </button>
-            <button
-              disabled={entry.sets.length === 0}
-              onClick={() => (onChange({ ...entry, sets: entry.sets.slice(0, -1) }), setMenu(false))}
-            >
+            <button disabled={entry.sets.length === 0} onClick={() => (onChange({ ...entry, sets: entry.sets.slice(0, -1) }), setMenu(false))}>
               <Minus size={18} /> Togli l'ultima serie
             </button>
             {group && variant && (

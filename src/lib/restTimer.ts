@@ -24,13 +24,26 @@ export function getDefaultRest(): number {
   }
 }
 
+const defaultSubs = new Set<() => void>();
+
 export function setDefaultRest(seconds: number) {
   try {
     localStorage.setItem(DEFAULT_KEY, String(seconds));
   } catch {
     /* ignorato */
   }
-  notify();
+  defaultSubs.forEach((fn) => fn());
+}
+
+/** Recupero predefinito, aggiornato quando lo cambi nelle impostazioni. */
+export function useDefaultRest(): number {
+  return useSyncExternalStore(
+    (fn) => {
+      defaultSubs.add(fn);
+      return () => defaultSubs.delete(fn);
+    },
+    getDefaultRest,
+  );
 }
 
 export function startRest(seconds = getDefaultRest()) {
