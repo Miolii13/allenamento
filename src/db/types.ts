@@ -68,8 +68,21 @@ export interface TemplateItem {
   sets: TemplateSet[];
 }
 
+/** Scheda: contiene più allenamenti (es. Upper 1, Lower, Upper 2). */
+export interface Program {
+  id: string;
+  name: string;
+  order: number;
+  archived?: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Allenamento di una scheda (es. Upper 1): l'elenco degli esercizi con serie e recuperi. */
 export interface Template {
   id: string;
+  /** Scheda a cui appartiene. Se manca, sta nella scheda predefinita. */
+  programId?: string;
   name: string;
   order: number;
   items: TemplateItem[];
@@ -119,9 +132,22 @@ export interface Workout {
 /** Cosa prevede un giorno della settimana tipo. */
 export type DayPlan = { kind: 'rest' } | { kind: 'gym'; templateId: string } | { kind: 'run' };
 
+/** Split settimanale: cosa fai ogni giorno, da lunedì (0) a domenica (6). */
+export interface WeekSplit {
+  id: string;
+  name: string;
+  days: DayPlan[];
+}
+
 export interface Settings {
   id: 'settings';
   equipment: EquipmentGroup[];
-  /** Settimana tipo, da lunedì (0) a domenica (6). */
+  /** Split settimanali disponibili. */
+  splits?: WeekSplit[];
+  /** Split usata quando per la settimana non ne hai scelta un'altra. */
+  defaultSplitId?: string;
+  /** Split scelta per una settimana precisa (chiave: data del lunedì, aaaa-mm-gg). */
+  splitByWeek?: Record<string, string>;
+  /** @deprecated settimana tipo unica delle versioni precedenti: letta come prima split. */
   weekPlan?: DayPlan[];
 }

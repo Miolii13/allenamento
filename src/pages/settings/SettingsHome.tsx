@@ -7,7 +7,7 @@ import { Link } from '../../router';
 import { PageHeader } from '../../components/PageHeader';
 import { useSyncStatus } from '../../sync/controller';
 import { fmtClock, useDefaultRest } from '../../lib/restTimer';
-import { hasPlan, WEEKDAYS } from '../../lib/weekPlan';
+import { defaultSplit, splitsOf } from '../../lib/weekPlan';
 import { daysAgo } from '../../lib/format';
 
 const timeFmt = new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit' });
@@ -52,7 +52,6 @@ export function SettingsHome() {
   const settings = useSettings();
   const sync = useSyncStatus();
   const rest = useDefaultRest();
-  const templates = useLiveQuery(() => db.templates.toArray());
   const exercises = useLiveQuery(() => db.exercises.toArray());
 
   const syncSub =
@@ -68,16 +67,11 @@ export function SettingsHome() {
               ? `Sincronizzato ${daysAgo(sync.lastSync)} alle ${timeFmt.format(sync.lastSync)}`
               : 'Connesso';
 
-  const planSub = hasPlan(settings)
-    ? settings!
-        .weekPlan!.map((p, i) => {
-          if (p.kind === 'run') return `${WEEKDAYS[i].slice(0, 3)} corsa`;
-          if (p.kind === 'gym') return `${WEEKDAYS[i].slice(0, 3)} ${templates?.find((t) => t.id === p.templateId)?.name ?? '?'}`;
-          return null;
-        })
-        .filter(Boolean)
-        .join(' · ')
-    : 'Non impostata';
+  const splits = splitsOf(settings);
+  const def = defaultSplit(settings);
+  const planSub = splits.length
+    ? `${splits.length} ${splits.length === 1 ? 'split' : 'split'} · predefinita: ${def?.name ?? '—'}`
+    : 'Nessuna split: creane una';
 
   return (
     <div className="page">
@@ -94,7 +88,7 @@ export function SettingsHome() {
       </Group>
 
       <Group title="Allenamento">
-        <SettingsRow to="/impostazioni/settimana" icon={<CalendarDays size={19} />} tone="success" title="Settimana tipo" sub={planSub} />
+        <SettingsRow to="/impostazioni/split" icon={<CalendarDays size={19} />} tone="success" title="Split settimanali" sub={planSub} />
         <SettingsRow
           to="/impostazioni/recupero"
           icon={<Timer size={19} />}

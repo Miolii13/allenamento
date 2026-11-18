@@ -1,9 +1,9 @@
 import Dexie, { type Table, type Transaction } from 'dexie';
-import type { Exercise, Settings, Template, Workout } from './types';
+import type { Exercise, Program, Settings, Template, Workout } from './types';
 import { seedDatabase } from './seed';
 
 /** Tabelle sincronizzate con il server. Corsa e alimentazione si aggiungeranno qui. */
-export const SYNCED_KINDS = ['exercises', 'templates', 'workouts', 'settings'] as const;
+export const SYNCED_KINDS = ['exercises', 'programs', 'templates', 'workouts', 'settings'] as const;
 export type SyncedKind = (typeof SYNCED_KINDS)[number];
 
 /** Modifica locale non ancora inviata al server (una sola per record: conta l'ultima). */
@@ -23,6 +23,7 @@ export interface MetaEntry {
 
 class AppDB extends Dexie {
   exercises!: Table<Exercise, string>;
+  programs!: Table<Program, string>;
   templates!: Table<Template, string>;
   workouts!: Table<Workout, string>;
   settings!: Table<Settings, string>;
@@ -40,6 +41,9 @@ class AppDB extends Dexie {
     this.version(2).stores({
       outbox: 'key',
       meta: 'key',
+    });
+    this.version(3).stores({
+      programs: 'id, order',
     });
     // Al primo avvio carica attrezzi, esercizi e le schede della split attuale.
     // Non va in coda: è identico su ogni dispositivo e i dati del server hanno la precedenza.

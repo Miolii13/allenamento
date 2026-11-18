@@ -45,7 +45,7 @@ export async function syncOnce(remote: Remote, scope: string, device: string): P
   const rows = await remote.pull({ since, excludeDevice: first ? null : device });
 
   let applied = 0;
-  await db.transaction('rw', [db.exercises, db.templates, db.workouts, db.settings, db.outbox, db.meta], async (tx) => {
+  await db.transaction('rw', [db.exercises, db.programs, db.templates, db.workouts, db.settings, db.outbox, db.meta], async (tx) => {
     silence(tx);
     for (const r of rows) {
       if (!isKind(r.kind)) continue;

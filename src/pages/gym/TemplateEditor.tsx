@@ -7,6 +7,8 @@ import { ExercisePicker } from '../../components/ExercisePicker';
 import { PageHeader } from '../../components/PageHeader';
 import { navigate } from '../../router';
 import { setLabels, summarizeSets } from '../../lib/format';
+import { usePrograms } from '../../lib/programs';
+import { DEFAULT_PROGRAM_ID } from '../../db/constants';
 import { fmtClock, getDefaultRest, ITEM_REST_OPTIONS } from '../../lib/restTimer';
 
 const SUPERSET_LETTERS = ['A', 'B', 'C', 'D', 'E'];
@@ -17,8 +19,10 @@ type PickerState = { mode: 'add' } | { mode: 'replace'; itemId: string } | null;
 /** Etichetta corta per il numero della serie: S1 -> 1, Attiv. -> A, drop -> ↳, Myo 2 -> M2. */
 const shortLabel = (l: string) => l.replace(/^S(\d+)$/, '$1').replace('Attiv.', 'A').replace('↳ drop', '↳').replace(/^Myo (\d+)$/, 'M$1');
 
-export function TemplateEditor({ id }: { id: string }) {
-  const isNew = id === 'nuova';
+/** Allenamento di una scheda (es. Upper 1): esercizi, serie, recuperi, superset. */
+export function TemplateEditor({ id, programId }: { id: string; programId?: string }) {
+  const isNew = id === 'nuovo';
+  const programs = usePrograms();
   const [t, setT] = useState<Template | null>();
   const [picker, setPicker] = useState<PickerState>(null);
   const exMap = useExerciseMap();
@@ -27,16 +31,20 @@ export function TemplateEditor({ id }: { id: string }) {
   useEffect(() => {
     if (isNew) {
       db.templates.count().then((n) =>
-        setT({ id: uid(), name: '', order: n + 1, items: [], createdAt: Date.now(), updatedAt: Date.now() }),
+        setT({ id: uid(), programId: programId ?? DEFAULT_PROGRAM_ID, name: '', order: n + 1, items: [], createdAt: Date.now(), updatedAt: Date.now() }),
       );
     } else {
       db.templates.get(id).then((x) => setT(x ?? null));
     }
-  }, [id, isNew]);
+  }, [id, isNew, programId]);
 
   if (t === undefined) return <p className="page muted">Caricamento…</p>;
-  if (t === null) return <p className="page">Scheda non trovata.</p>;
+  if (t === null) return <p className="page">Allenamento non trovato.</p>;
   const tpl = t;
+  // scheda a cui appartiene: si torna lì dopo il salvataggio
+  const ownerId = programs?.find((p) => p.templates.some((x) => x.id === tpl.id))?.program.id ?? tpl.programId ?? DEFAULT_PROGRAM_ID;
+  const ownerName = programs?.find((p) => p.program.id === ownerId)?.program.name ?? 'Scheda';
+  const backTo = `/pesi/scheda/${ownerId}`;
 
   const setItem = (itemId: string, patch: Partial<TemplateItem>) =>
     setT({ ...tpl, items: tpl.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)) });
@@ -61,7 +69,7 @@ export function TemplateEditor({ id }: { id: string }) {
 
   async function save() {
     if (!tpl.name.trim()) {
-      alert('Dai un nome alla scheda.');
+      alert("Dai un nome all'allenamento.");
       return;
     }
     // le note lasciate vuote non si salvano
@@ -69,26 +77,26 @@ export function TemplateEditor({ id }: { id: string }) {
       ...it,
       sets: it.sets.map(({ note, ...s }) => (note?.trim() ? { ...s, note: note.trim() } : s)),
     }));
-    await db.templates.put({ ...tpl, items, name: tpl.name.trim(), updatedAt: Date.now() });
-    navigate('/pesi');
+    await db.templates.put({ ...tpl, programId: tpl.programId ?? ownerId, items, name: tpl.name.trim(), updatedAt: Date.now() });
+    navigate(backTo);
   }
 
   async function remove() {
-    if (!confirm(`Eliminare la scheda «${tpl.name}»? Gli allenamenti già fatti restano nello storico.`)) return;
+    if (!confirm(`Eliminare l'allenamento «${tpl.name}»? Quelli già fatti restano nello storico.`)) return;
     await db.templates.delete(tpl.id);
-    navigate('/pesi', { replace: true });
+    navigate(backTo, { replace: true });
   }
 
   return (
     <div className="page">
       <PageHeader
-        title={isNew ? 'Nuova scheda' : 'Modifica scheda'}
-        back={{ to: '/pesi', label: 'Oggi' }}
+        title={isNew ? 'Nuovo allenamento' : 'Modifica allenamento'}
+        back={{ to: backTo, label: ownerName }}
         subtitle="Le modifiche valgono dai prossimi allenamenti."
       />
 
       <label className="field">
-        <span>Nome della scheda</span>
+        <span>Nome dell'allenamento</span>
         <input value={tpl.name} placeholder="Es. Upper 1" onChange={(e) => setT({ ...tpl, name: e.target.value })} />
       </label>
 
@@ -244,11 +252,11 @@ export function TemplateEditor({ id }: { id: string }) {
           </button>
         )}
         <span className="grow" />
-        <button className="btn btn-sm" onClick={() => navigate('/pesi')}>
+        <button className="btn btn-sm" onClick={() => navigate(backTo)}>
           Annulla
         </button>
         <button className="btn btn-primary btn-sm" onClick={save}>
-          Salva scheda
+          Salva allenamento
         </button>
       </div>
 

@@ -14,6 +14,8 @@ export interface SyncConfig {
 const CONFIG_KEY = 'allenamento-supabase';
 const DEVICE_KEY = 'allenamento-device';
 const LAST_SYNC_KEY = 'allenamento-last-sync';
+const SCHEMA_KEY = 'allenamento-sync-schema';
+const SYNC_SCHEMA = '2'; // 2 = con le schede (programs)
 
 const ENV_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const ENV_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -107,6 +109,15 @@ async function runSync() {
   running = true;
   setStatus({ state: 'syncing' });
   try {
+    // nuove tabelle sincronizzate: le versioni precedenti dell'app ne saltavano le righe, quindi riscarico tutto una volta
+    if (readLS(SCHEMA_KEY) !== SYNC_SCHEMA) {
+      await resetWatermark(userId);
+      try {
+        localStorage.setItem(SCHEMA_KEY, SYNC_SCHEMA);
+      } catch {
+        /* ignorato */
+      }
+    }
     await syncOnce(supabaseRemote(client, userId), userId, deviceId());
     const now = Date.now();
     try {

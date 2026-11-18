@@ -1,5 +1,6 @@
 import type { Transaction } from 'dexie';
-import type { EquipmentGroup, Exercise, LoadType, Template, TemplateItem, TemplateSet } from './types';
+import type { EquipmentGroup, Exercise, LoadType, Program, Template, TemplateItem, TemplateSet } from './types';
+import { DEFAULT_PROGRAM_ID } from './constants';
 
 export const DEFAULT_EQUIPMENT: EquipmentGroup[] = [
   {
@@ -72,6 +73,7 @@ function seedTemplates(now: number): Template[] {
   return [
     {
       id: 'upper-1',
+      programId: DEFAULT_PROGRAM_ID,
       name: 'Upper 1',
       order: 1,
       createdAt: now,
@@ -90,6 +92,7 @@ function seedTemplates(now: number): Template[] {
     },
     {
       id: 'lower',
+      programId: DEFAULT_PROGRAM_ID,
       name: 'Lower',
       order: 2,
       createdAt: now,
@@ -108,6 +111,7 @@ function seedTemplates(now: number): Template[] {
     },
     {
       id: 'upper-2',
+      programId: DEFAULT_PROGRAM_ID,
       name: 'Upper 2',
       order: 3,
       createdAt: now,
@@ -138,5 +142,7 @@ export async function seedDatabase(tx: Transaction): Promise<void> {
   }));
   await tx.table('settings').put({ id: 'settings', equipment: DEFAULT_EQUIPMENT });
   await tx.table('exercises').bulkAdd(exercises);
+  const program: Program = { id: DEFAULT_PROGRAM_ID, name: 'La mia scheda', order: 1, createdAt: now, updatedAt: now };
+  await tx.table('programs').add(program);
   await tx.table('templates').bulkAdd(seedTemplates(now));
 }

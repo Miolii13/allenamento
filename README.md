@@ -49,8 +49,10 @@ apertura con la rete dopo un nuovo push.
 
 ## Come funziona la sala pesi
 
-- **Schede**: esercizi con serie e ripetizioni obiettivo. Tipi di serie: normale, drop (scalata subito
-  dopo), myo (mini-serie dopo l'attivazione). Esercizi con la stessa lettera sono in superset.
+- **Schede, allenamenti, esercizi** (come una matrioska): una *scheda* (es. «Upper/Lower») contiene i suoi
+  *allenamenti* (Upper 1, Lower, Upper 2), e ogni allenamento contiene gli *esercizi* con serie e ripetizioni
+  obiettivo. Tipi di serie: normale, drop (scalata subito dopo), myo (mini-serie dopo l'attivazione). Esercizi con la
+  stessa lettera sono in superset.
 - **Avvia workout**: per ogni esercizio vedi cosa hai fatto l'ultima volta. La colonna «Prima» mostra la
   serie corrispondente con ▲ / = / ▼ rispetto a oggi. La ✓ segna la serie e, se lasci campi vuoti, li
   riempie con i valori della volta prima. Se l'ultima volta hai chiuso il range in tutte le serie, l'app
@@ -58,8 +60,11 @@ apertura con la rete dopo un nuovo push.
 - **Smith machine e cavi**: gli esercizi collegati a un attrezzo con più versioni chiedono quale hai usato.
   I pesi della volta prima vengono convertiti sulla versione di oggi (default: 50 kg Smith 1 = 45 kg Smith 2,
   9 kg Cavo 1 = 4,5 kg Cavo 2). Nomi e equivalenze si cambiano in Impostazioni.
-- **Settimana tipo** (Impostazioni o «Modifica» nella home): per ogni giorno una scheda, la corsa o il riposo.
-  Aprendo l'app la home mostra l'allenamento di oggi; senza settimana tipo propone la scheda successiva della rotazione.
+- **Split settimanali** (Impostazioni → Split settimanali): per ogni giorno un allenamento, la corsa o il riposo. Puoi
+  averne più di una: una è la predefinita, e dalla home («Questa settimana») scegli quale usare per la settimana in
+  corso. Aprendo l'app la home mostra l'allenamento di oggi; senza split propone il prossimo della scheda.
+- **Annullare o eliminare**: il cestino durante l'allenamento lo annulla e cancella tutto; dallo storico «Elimina»
+  toglie un allenamento fatto (anche dalle statistiche e dagli altri dispositivi).
 - **Recupero**: il timer parte quando spunti una serie. Ogni esercizio della scheda può avere il suo recupero;
   se non lo imposti vale quello predefinito (2:00, modificabile in Impostazioni).
 - **Statistiche**: allenamenti, volume, serie e durata media con il confronto sul periodo precedente, volume per

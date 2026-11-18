@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Download, Upload } from 'lucide-react';
 import { exportBackup, importBackup } from '../../db/repo';
 import { PageHeader } from '../../components/PageHeader';
-import { useWeekPlanDraft, WeekPlanRows, WEEK_PLAN_HELP } from '../../components/WeekPlanSheet';
 import { fmtClock, setDefaultRest, useDefaultRest } from '../../lib/restTimer';
 import { navigate } from '../../router';
 import { SyncCard } from '../SyncCard';
@@ -19,35 +18,6 @@ export function SyncSettings() {
         di secondi e le modifiche degli altri dispositivi arrivano all'apertura e ogni minuto. Se lo stesso dato cambia in due posti,
         vince la modifica più recente.
       </p>
-    </div>
-  );
-}
-
-export function WeekPlanSettings() {
-  const draft = useWeekPlanDraft();
-  const [saved, setSaved] = useState(false);
-  return (
-    <div className="page">
-      <PageHeader title="Settimana tipo" back={BACK} subtitle={WEEK_PLAN_HELP} />
-      <WeekPlanRows draft={draft} />
-      <div className="sticky-actions">
-        {saved && !draft.dirty && (
-          <span className="pos small strong row" style={{ gap: 4 }}>
-            <Check size={16} strokeWidth={3} /> Salvata
-          </span>
-        )}
-        <span className="grow" />
-        <button
-          className="btn btn-primary"
-          disabled={!draft.ready || !draft.dirty}
-          onClick={async () => {
-            await draft.save();
-            setSaved(true);
-          }}
-        >
-          Salva settimana
-        </button>
-      </div>
     </div>
   );
 }
@@ -74,7 +44,7 @@ export function RestSettings() {
         ))}
       </div>
       <p className="muted small">
-        Per un recupero diverso su un singolo esercizio: apri la scheda, «Modifica scheda» e scegli il recupero sotto l'esercizio.
+        Per un recupero diverso su un singolo esercizio: apri l'allenamento («Modifica allenamento») e scegli il recupero sotto l'esercizio.
       </p>
     </div>
   );

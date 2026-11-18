@@ -3,6 +3,7 @@ import { Link, useRoute } from './router';
 import { useSyncStatus } from './sync/controller';
 import { GymHome } from './pages/gym/GymHome';
 import { TemplateEditor } from './pages/gym/TemplateEditor';
+import { ProgramEditor } from './pages/gym/ProgramEditor';
 import { WorkoutPage } from './pages/gym/WorkoutPage';
 import { HistoryList } from './pages/gym/HistoryList';
 import { WorkoutDetail } from './pages/gym/WorkoutDetail';
@@ -10,7 +11,8 @@ import { ExerciseList } from './pages/gym/ExerciseList';
 import { ExerciseDetail } from './pages/gym/ExerciseDetail';
 import { StatsPage } from './pages/gym/StatsPage';
 import { SettingsHome } from './pages/settings/SettingsHome';
-import { BackupSettings, RestSettings, SyncSettings, WeekPlanSettings } from './pages/settings/SettingsPages';
+import { BackupSettings, RestSettings, SyncSettings } from './pages/settings/SettingsPages';
+import { SplitEditor, SplitList } from './pages/settings/SplitSettings';
 import { EquipmentSettings } from './pages/settings/EquipmentSettings';
 import { ComingSoon } from './pages/ComingSoon';
 import { RestTimerBar } from './components/RestTimer';
@@ -22,7 +24,8 @@ const NAV = [
   { to: '/impostazioni', label: 'Impostazioni', icon: Settings },
 ];
 
-function Screen({ parts, fresh }: { parts: string[]; fresh: boolean }) {
+function Screen({ parts, query }: { parts: string[]; query: URLSearchParams }) {
+  const fresh = query.get('fine') === '1';
   const [section, sub, id] = parts;
   if (section === 'corsa')
     return (
@@ -36,7 +39,8 @@ function Screen({ parts, fresh }: { parts: string[]; fresh: boolean }) {
     return <ComingSoon icon={<Utensils size={28} />} title="Alimentazione" text="Qui arriverà il diario dell'alimentazione." />;
   if (section === 'impostazioni') {
     if (sub === 'sincronizzazione') return <SyncSettings />;
-    if (sub === 'settimana') return <WeekPlanSettings />;
+    if (sub === 'split' && id) return <SplitEditor key={id} id={id} />;
+    if (sub === 'split' || sub === 'settimana') return <SplitList />;
     if (sub === 'recupero') return <RestSettings />;
     if (sub === 'backup') return <BackupSettings />;
     if (sub === 'attrezzi' && id) return <EquipmentSettings key={id} id={id} />;
@@ -44,7 +48,8 @@ function Screen({ parts, fresh }: { parts: string[]; fresh: boolean }) {
   }
 
   // sala pesi
-  if (sub === 'scheda' && id) return <TemplateEditor key={id} id={id} />;
+  if (sub === 'scheda' && id) return <ProgramEditor key={id} id={id} />;
+  if (sub === 'allenamento' && id) return <TemplateEditor key={id} id={id} programId={query.get('scheda') ?? undefined} />;
   if (sub === 'workout' && id) return <WorkoutPage key={id} id={id} />;
   if (sub === 'storico' && id) return <WorkoutDetail key={id} id={id} fresh={fresh} />;
   if (sub === 'storico') return <HistoryList />;
@@ -62,7 +67,7 @@ export function App() {
   return (
     <div className="app">
       <main>
-        <Screen parts={parts.length ? parts : ['pesi']} fresh={query.get('fine') === '1'} />
+        <Screen parts={parts.length ? parts : ['pesi']} query={query} />
       </main>
       <RestTimerBar />
       <nav className="bottom-nav" aria-label="Sezioni">

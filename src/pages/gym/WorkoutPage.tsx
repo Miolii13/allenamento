@@ -39,6 +39,7 @@ import type { EquipmentGroup, Exercise, SetType, Workout, WorkoutEntry, WorkoutS
 import { NumInput } from '../../components/NumInput';
 import { ExercisePicker } from '../../components/ExercisePicker';
 import { Sheet } from '../../components/Sheet';
+import { DeleteWorkoutSheet } from '../../components/DeleteWorkoutSheet';
 import { Link, navigate } from '../../router';
 import { daysAgo, fmtDateShort, fmtDuration, fmtNum, loadUnit, summarizeSets, toLocalInput } from '../../lib/format';
 import {
@@ -111,6 +112,7 @@ export function WorkoutPage({ id }: { id: string }) {
   const [prev, setPrev] = useState<Record<string, PrevEntry | undefined>>({});
   const [picker, setPicker] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [current, setCurrent] = useState(0);
   const [height, setHeight] = useState<number>();
@@ -250,12 +252,7 @@ export function WorkoutPage({ id }: { id: string }) {
     navigate(`/pesi/storico/${workout.id}?fine=1`, { replace: true });
   }
 
-  async function discard() {
-    if (!confirm("Annullare l'allenamento? Quello che hai segnato verrà perso.")) return;
-    stopRest();
-    await db.workouts.delete(workout.id);
-    navigate('/pesi', { replace: true });
-  }
+  const discard = () => setDeleting(true);
 
   async function doneEditing() {
     await db.workouts.put(cleanWorkout(workout));
@@ -286,6 +283,9 @@ export function WorkoutPage({ id }: { id: string }) {
               </span>
             </div>
           </div>
+          <button className="icon-btn" onClick={() => setDeleting(true)} aria-label={isActive ? 'Annulla allenamento' : 'Elimina allenamento'}>
+            <Trash2 size={20} />
+          </button>
           {isActive ? (
             <button className="btn btn-success btn-sm" onClick={() => setFinishing(true)}>
               <Check size={16} strokeWidth={3} /> Fine
@@ -442,14 +442,20 @@ export function WorkoutPage({ id }: { id: string }) {
               </button>
             </div>
           ) : (
-            <button className="btn btn-primary btn-lg btn-block" onClick={doneEditing}>
-              Salva modifiche
-            </button>
+            <div className="stack-s">
+              <button className="btn btn-primary btn-lg btn-block" onClick={doneEditing}>
+                Salva modifiche
+              </button>
+              <button className="btn btn-danger-text btn-block" onClick={() => setDeleting(true)}>
+                Elimina allenamento
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {picker && <ExercisePicker onPick={addExercise} onClose={() => setPicker(false)} />}
+      {deleting && <DeleteWorkoutSheet workout={workout} onClose={() => setDeleting(false)} />}
 
       {finishing && (
         <Sheet title="Terminare l'allenamento?" onClose={() => setFinishing(false)}>

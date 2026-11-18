@@ -7,6 +7,7 @@ import { Link, navigate } from '../../router';
 import { fmtDate, fmtDuration, fmtNum } from '../../lib/format';
 import { compareSet, entryVolume, equipmentOf, isLogged, matchPrevSet, setText, variantOf } from '../../lib/progress';
 import { PageHeader } from '../../components/PageHeader';
+import { DeleteWorkoutSheet } from '../../components/DeleteWorkoutSheet';
 import { TrendIcon } from './WorkoutPage';
 
 export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
@@ -14,6 +15,7 @@ export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
   const exMap = useExerciseMap();
   const settings = useSettings();
   const [prev, setPrev] = useState<Record<string, PrevEntry | undefined>>({});
+  const [deleting, setDeleting] = useState(false);
 
   const prevKey = w ? `${w.exerciseIds.join('|')}@${w.startedAt}` : '';
   useEffect(() => {
@@ -62,11 +64,6 @@ export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
     return { e, ex, variant, bodyweight, sets, vol, delta };
   });
 
-  async function remove() {
-    if (!confirm('Eliminare questo allenamento dallo storico? Non si può annullare.')) return;
-    await db.workouts.delete(id);
-    navigate('/pesi/storico', { replace: true });
-  }
 
   const duration = w.finishedAt ? fmtDuration(w.finishedAt - w.startedAt) : '—';
 
@@ -163,10 +160,11 @@ export function WorkoutDetail({ id, fresh }: { id: string; fresh: boolean }) {
         <Link to={`/pesi/workout/${w.id}`} className="btn grow">
           <Pencil size={16} /> Modifica
         </Link>
-        <button className="btn btn-danger" onClick={remove}>
+        <button className="btn btn-danger" onClick={() => setDeleting(true)}>
           <Trash2 size={16} /> Elimina
         </button>
       </div>
+      {deleting && <DeleteWorkoutSheet workout={w} onClose={() => setDeleting(false)} />}
     </div>
   );
 }

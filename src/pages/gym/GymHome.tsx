@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronRight,
   Clock,
   Coffee,
@@ -23,24 +24,18 @@ import { Link, navigate } from '../../router';
 import { daysAgo, fmtDuration, summarizeSets } from '../../lib/format';
 import { isLogged } from '../../lib/progress';
 import { useInstallPrompt } from '../../lib/install';
-import { DAY_LETTERS, hasPlan, planFor, planLabel, startOfDay, startOfWeek, weekdayIndex, WEEKDAYS } from '../../lib/weekPlan';
+import { initials, usePrograms } from '../../lib/programs';
+import { activeSplit, DAY_LETTERS, planLabel, splitsOf, startOfDay, startOfWeek, weekdayIndex, WEEKDAYS } from '../../lib/weekPlan';
 import { PageHeader, EmptyState } from '../../components/PageHeader';
 import { Sheet } from '../../components/Sheet';
-import { WeekPlanSheet } from '../../components/WeekPlanSheet';
+import { SplitChooserSheet } from '../../components/Splits';
+import { DeleteWorkoutSheet } from '../../components/DeleteWorkoutSheet';
 import { GymTabs } from './GymTabs';
+
+export { initials };
 
 const todayFmt = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** Sigla della scheda: "Upper 1" -> "U1", "Lower" -> "L". */
-export function initials(name: string): string {
-  const s = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => (/^\d+$/.test(w) ? w : w[0].toUpperCase()))
-    .join('');
-  return s.slice(0, 3) || '?';
-}
 
 interface TemplateStats {
   last: number;
@@ -48,19 +43,22 @@ interface TemplateStats {
 }
 
 export function GymHome() {
-  const templates = useLiveQuery(() => db.templates.orderBy('order').filter((t) => !t.archived).toArray());
+  const programs = usePrograms();
   const active = useActiveWorkout();
   const exMap = useExerciseMap();
   const settings = useSettings();
   const installer = useInstallPrompt();
   const [preview, setPreview] = useState<Template | null>(null);
-  const [editPlan, setEditPlan] = useState(false);
+  const [chooseSplit, setChooseSplit] = useState(false);
+  const [cancelActive, setCancelActive] = useState(false);
 
   const data = useLiveQuery(async () => {
     const byTemplate = new Map<string, TemplateStats>();
     const done: Workout[] = await db.workouts.where('status').equals('done').toArray();
+    let lastDone: Workout | undefined;
     for (const w of done) {
       if (!w.templateId) continue;
+      if (!lastDone || lastDone.startedAt < w.startedAt) lastDone = w;
       const cur = byTemplate.get(w.templateId);
       if (!cur || cur.last < w.startedAt) {
         const dur = w.finishedAt ? w.finishedAt - w.startedAt : undefined;
@@ -71,29 +69,28 @@ export function GymHome() {
     const thisWeek = done.filter((w) => w.startedAt >= weekStart);
     const weekDays = new Set(thisWeek.map((w) => Math.floor((w.startedAt - weekStart) / 86400000)));
     const today = done.filter((w) => w.startedAt >= startOfDay()).sort((a, b) => b.startedAt - a.startedAt);
-    return { byTemplate, weekDays, weekCount: thisWeek.length, today };
+    return { byTemplate, weekDays, weekCount: thisWeek.length, today, lastDone };
   });
 
+  const templates = programs?.flatMap((p) => p.templates);
+  const split = activeSplit(settings);
+  const splits = splitsOf(settings);
+  const planned = !!split?.days.some((p) => p.kind !== 'rest');
   const today = weekdayIndex();
-  const planned = hasPlan(settings);
-  const todayPlan = planned ? planFor(settings, today) : undefined;
-  const tomorrowPlan = planned ? planFor(settings, (today + 1) % 7) : undefined;
+  const todayPlan = planned ? split!.days[today] : undefined;
+  const tomorrowPlan = planned ? split!.days[(today + 1) % 7] : undefined;
   const todayTemplate = todayPlan?.kind === 'gym' ? templates?.find((t) => t.id === todayPlan.templateId) : undefined;
   const todayDone = todayTemplate ? data?.today.find((w) => w.templateId === todayTemplate.id) : undefined;
 
-  // Senza settimana tipo: la prossima scheda della rotazione (quella dopo l'ultima fatta).
-  let next: Template | undefined = templates?.[0];
-  if (templates?.length && data?.byTemplate.size) {
-    let lastIdx = -1;
-    let lastTs = 0;
-    templates.forEach((t, i) => {
-      const ts = data.byTemplate.get(t.id)?.last ?? 0;
-      if (ts > lastTs) {
-        lastTs = ts;
-        lastIdx = i;
-      }
-    });
-    if (lastIdx >= 0) next = templates[(lastIdx + 1) % templates.length];
+  // Senza split: l'allenamento dopo l'ultimo fatto, nella stessa scheda.
+  let next: Template | undefined;
+  if (programs?.length) {
+    const lastId = data?.lastDone?.templateId;
+    const prog = programs.find((p) => p.templates.some((t) => t.id === lastId)) ?? programs.find((p) => p.templates.length);
+    if (prog) {
+      const i = prog.templates.findIndex((t) => t.id === lastId);
+      next = prog.templates[(i + 1) % prog.templates.length];
+    }
   }
   const highlighted = planned ? todayTemplate : next;
 
@@ -147,6 +144,9 @@ export function GymHome() {
         </div>
         <button className="btn btn-lg btn-block" onClick={() => navigate(`/pesi/workout/${active.id}`)}>
           <Play size={18} fill="currentColor" /> Riprendi
+        </button>
+        <button className="hero-cancel" onClick={() => setCancelActive(true)}>
+          Annulla allenamento
         </button>
       </div>
     );
@@ -237,9 +237,15 @@ export function GymHome() {
       <section className="section">
         <div className="section-title">
           <h2>Questa settimana</h2>
-          <button className="link" onClick={() => setEditPlan(true)}>
-            {planned ? 'Modifica' : 'Imposta'}
-          </button>
+          {splits.length > 0 ? (
+            <button className="split-chip" onClick={() => setChooseSplit(true)} aria-label="Cambia split di questa settimana">
+              {split?.name} <ChevronDown size={14} />
+            </button>
+          ) : (
+            <Link to="/impostazioni/split/nuova" className="link">
+              Crea split
+            </Link>
+          )}
         </div>
         <div className="card">
           <div className="week">
@@ -247,7 +253,7 @@ export function GymHome() {
               const day = new Date(weekStart);
               day.setDate(day.getDate() + i);
               const done = data?.weekDays.has(i);
-              const p = planned ? planFor(settings, i) : undefined;
+              const p = planned ? split!.days[i] : undefined;
               const t = p?.kind === 'gym' ? templates?.find((x) => x.id === p.templateId) : undefined;
               return (
                 <div key={i} className={`day${done ? ' done' : ''}${i === today ? ' today' : ''}`}>
@@ -265,13 +271,13 @@ export function GymHome() {
           {planned ? (
             <p className="muted small">
               {data?.weekCount ?? 0} {data?.weekCount === 1 ? 'allenamento fatto' : 'allenamenti fatti'} su{' '}
-              {settings?.weekPlan?.filter((p) => p.kind === 'gym').length ?? 0} in sala pesi questa settimana
+              {split!.days.filter((p) => p.kind === 'gym').length} in sala pesi questa settimana
             </p>
           ) : (
-            <button className="banner accent" style={{ border: 'none', textAlign: 'left', cursor: 'pointer' }} onClick={() => setEditPlan(true)}>
+            <Link to="/impostazioni/split/nuova" className="banner accent" style={{ textDecoration: 'none' }}>
               <CalendarDays size={18} />
-              <span>Imposta la settimana tipo: aprendo l'app vedrai subito l'allenamento del giorno.</span>
-            </button>
+              <span>Crea una split settimanale: aprendo l'app vedrai subito l'allenamento del giorno.</span>
+            </Link>
           )}
         </div>
       </section>
@@ -280,15 +286,15 @@ export function GymHome() {
         <div className="section-title">
           <h2>Le tue schede</h2>
           <Link to="/pesi/scheda/nuova" className="link">
-            + Nuova
+            + Nuova scheda
           </Link>
         </div>
-        {templates?.length === 0 ? (
+        {programs?.length === 0 ? (
           <div className="card">
             <EmptyState
               icon={<ListChecks size={26} />}
               title="Nessuna scheda"
-              text="Crea una scheda con i tuoi esercizi per iniziare ad allenarti."
+              text="Una scheda raccoglie gli allenamenti che fai a rotazione, ognuno con i suoi esercizi."
               action={
                 <Link to="/pesi/scheda/nuova" className="btn btn-primary">
                   Crea scheda
@@ -297,24 +303,47 @@ export function GymHome() {
             />
           </div>
         ) : (
-          <div className="card flush">
-            {templates?.map((t) => {
-              const last = data?.byTemplate.get(t.id)?.last;
-              return (
-                <button key={t.id} className="list-row" onClick={() => setPreview(t)}>
-                  <span className="tile-icon">{initials(t.name)}</span>
-                  <span className="lr-body">
-                    <span className="lr-title">{t.name}</span>
-                    <span className="lr-sub">
-                      {t.items.length} esercizi · {last ? daysAgo(last) : 'mai fatta'}
-                    </span>
+          programs?.map(({ program, templates: days }) => (
+            <div key={program.id} className="card flush program-card">
+              <div className="program-head">
+                <span className="lr-body">
+                  <span className="program-name">{program.name}</span>
+                  <span className="lr-sub">
+                    {days.length} {days.length === 1 ? 'allenamento' : 'allenamenti'}
                   </span>
-                  {t.id === highlighted?.id && !active && <span className="chip accent">{planned ? 'Oggi' : 'Prossima'}</span>}
-                  <ChevronRight size={18} className="chev" />
-                </button>
-              );
-            })}
-          </div>
+                </span>
+                <Link to={`/pesi/scheda/${program.id}`} className="btn btn-sm">
+                  <Pencil size={14} /> Modifica
+                </Link>
+              </div>
+              {days.map((t) => {
+                const last = data?.byTemplate.get(t.id)?.last;
+                return (
+                  <button key={t.id} className="list-row" onClick={() => setPreview(t)}>
+                    <span className="tile-icon">{initials(t.name)}</span>
+                    <span className="lr-body">
+                      <span className="lr-title">{t.name}</span>
+                      <span className="lr-sub">
+                        {t.items.length} esercizi · {last ? daysAgo(last) : 'mai fatto'}
+                      </span>
+                    </span>
+                    {t.id === highlighted?.id && !active && <span className="chip accent">{planned ? 'Oggi' : 'Prossimo'}</span>}
+                    <ChevronRight size={18} className="chev" />
+                  </button>
+                );
+              })}
+              {days.length === 0 && (
+                <Link to={`/pesi/allenamento/nuovo?scheda=${program.id}`} className="list-row">
+                  <span className="tile-icon">
+                    <Plus size={18} />
+                  </span>
+                  <span className="lr-body">
+                    <span className="lr-title">Aggiungi il primo allenamento</span>
+                  </span>
+                </Link>
+              )}
+            </div>
+          ))
         )}
         <button className="btn btn-block" onClick={() => start()}>
           <Plus size={18} /> Allenamento libero
@@ -330,8 +359,8 @@ export function GymHome() {
               <button className="btn btn-primary btn-lg btn-block" onClick={() => start(preview)}>
                 <Play size={18} fill="currentColor" /> {active ? 'Riprendi allenamento in corso' : 'Inizia allenamento'}
               </button>
-              <Link to={`/pesi/scheda/${preview.id}`} className="btn btn-block">
-                <Pencil size={16} /> Modifica scheda
+              <Link to={`/pesi/allenamento/${preview.id}`} className="btn btn-block">
+                <Pencil size={16} /> Modifica allenamento
               </Link>
             </>
           }
@@ -361,7 +390,8 @@ export function GymHome() {
         </Sheet>
       )}
 
-      {editPlan && <WeekPlanSheet onClose={() => setEditPlan(false)} />}
+      {chooseSplit && <SplitChooserSheet onClose={() => setChooseSplit(false)} />}
+      {cancelActive && active && <DeleteWorkoutSheet workout={active} onClose={() => setCancelActive(false)} />}
     </div>
   );
 }

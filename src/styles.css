@@ -1721,3 +1721,57 @@ textarea::placeholder {
   background: var(--danger-soft);
   color: var(--danger);
 }
+
+/* ---------- Azioni distruttive e schede ---------- */
+
+.btn-danger-solid {
+  background: #dc2626;
+  color: #fff;
+}
+.program-card .program-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.program-card .program-name {
+  font-size: 17px;
+  font-weight: 750;
+}
+.hero .hero-cancel {
+  align-self: center;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.split-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.program-card .program-head .lr-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.program-card .program-head .lr-sub {
+  color: var(--muted);
+  font-size: 13px;
+}

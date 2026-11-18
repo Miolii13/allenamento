@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, uid } from './db';
-import type { Exercise, Settings, Template, Workout, WorkoutEntry, WorkoutSet } from './types';
+import type { Exercise, Program, Settings, Template, Workout, WorkoutEntry, WorkoutSet } from './types';
 import { isLogged } from '../lib/progress';
 
 export function useSettings(): Settings | undefined {
@@ -123,6 +123,7 @@ export interface Backup {
   exportedAt: string;
   settings: Settings[];
   exercises: Exercise[];
+  programs?: Program[];
   templates: Template[];
   workouts: Workout[];
 }
@@ -134,6 +135,7 @@ export async function exportBackup(): Promise<Backup> {
     exportedAt: new Date().toISOString(),
     settings: await db.settings.toArray(),
     exercises: await db.exercises.toArray(),
+    programs: await db.programs.toArray(),
     templates: await db.templates.toArray(),
     workouts: await db.workouts.toArray(),
   };
@@ -144,13 +146,14 @@ export async function importBackup(data: unknown): Promise<void> {
   if (b?.app !== 'allenamento' || !Array.isArray(b.exercises) || !Array.isArray(b.workouts)) {
     throw new Error('Il file non è un backup di questa app.');
   }
-  await db.transaction('rw', [db.settings, db.exercises, db.templates, db.workouts], async () => {
+  await db.transaction('rw', [db.settings, db.exercises, db.programs, db.templates, db.workouts], async () => {
     // cancellazione record per record (non clear) così anche le eliminazioni arrivano agli altri dispositivi
-    for (const table of [db.settings, db.exercises, db.templates, db.workouts]) {
+    for (const table of [db.settings, db.exercises, db.programs, db.templates, db.workouts]) {
       await table.bulkDelete(await table.toCollection().primaryKeys());
     }
     await db.settings.bulkPut(b.settings ?? []);
     await db.exercises.bulkPut(b.exercises ?? []);
+    await db.programs.bulkPut(b.programs ?? []);
     await db.templates.bulkPut(b.templates ?? []);
     await db.workouts.bulkPut(b.workouts ?? []);
   });
